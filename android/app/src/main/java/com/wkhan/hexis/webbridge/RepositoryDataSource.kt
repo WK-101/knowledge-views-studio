@@ -10,6 +10,7 @@ import com.wkhan.hexis.bridge.data.DataQuery
 import com.wkhan.hexis.bridge.data.DataResult
 import com.wkhan.hexis.bridge.data.EventDto
 import com.wkhan.hexis.bridge.data.HabitDto
+import com.wkhan.hexis.bridge.data.ListDto
 import com.wkhan.hexis.bridge.data.NoteDto
 import com.wkhan.hexis.bridge.data.TaskDto
 import com.wkhan.hexis.bridge.data.TimeEntryDto
@@ -47,7 +48,27 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
     private suspend fun queryTasks(query: DataQuery): DataPage = when (query.op) {
         DataApi.OP_LIST -> listPage(allTasks(), query) { it.toDto() }
         DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getTask(it)?.toDto() })
+        DataApi.OP_LISTS -> listPage(taskListDtos(), query) { it }
         else -> throw UnsupportedDomainException("tasks.${query.op}")
+    }
+
+    /** The active-workspace task lists (names) for the sidebar, Inbox first, with open-task counts. */
+    private suspend fun taskListDtos(): List<ListDto> {
+        val ws = repo.activeWs()
+        repo.ensureInbox()
+        val openByList = allTasks().filter { !it.completed }.groupingBy { it.listId }.eachCount()
+        return repo.allListsOnce()
+            .filter { (it.workspaceId == ws || it.id == ListEntity.INBOX_ID) && !it.archived && !it.trashed }
+            .sortedWith(compareByDescending<ListEntity> { it.id == ListEntity.INBOX_ID }.thenBy { it.sortOrder })
+            .map {
+                ListDto(
+                    id = it.id,
+                    name = it.name,
+                    emoji = it.emoji,
+                    colorArgb = it.colorArgb,
+                    count = openByList[it.id] ?: 0,
+                )
+            }
     }
 
     private suspend fun queryNotes(query: DataQuery): DataPage = when (query.op) {

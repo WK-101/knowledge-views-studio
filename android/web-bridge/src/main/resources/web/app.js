@@ -1,18 +1,16 @@
 "use strict";
 /*
- * Hexis Web client. Talks to the phone's /api over app-layer AES-256-GCM so the channel is confidential +
- * authenticated even on plain HTTP: the pairing key (carried in the URL fragment, never sent to the server)
- * is run through HKDF-SHA256 to the same AEAD key the phone derives, and every request/response is a
- * base64url( iv(12) || ciphertext+tag ) blob. Parameters mirror CryptoBox.kt exactly.
+ * Hexis Web — desktop companion served from the phone.
  *
- * Live refresh is a long-poll over the SAME encrypted channel (kind:"await"): the phone holds the request
- * until a watched domain changes (or ~25s), then the client reloads just that domain. No separate socket.
+ * Transport/crypto are unchanged from v0.2: every /api body and every /live WebSocket frame is
+ * AES-256-GCM over HKDF-SHA256 (WebCrypto-native), keyed by the per-device pairing key carried in the URL
+ * fragment. This file is the UI layer: a nav-rail + context-sidebar + main + right-inspector shell.
  */
 (function () {
   const AEAD_INFO = "hexis-web-aead-v1";
   const IV_LEN = 12;
 
-  // ---- base64url ---------------------------------------------------------------------------------
+  // ============================================================== base64url
   function b64urlEncode(bytes) {
     let s = "";
     for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
@@ -26,9 +24,8 @@
     return out;
   }
 
-  // ---- crypto ------------------------------------------------------------------------------------
-  let aeadKey = null; // CryptoKey (AES-GCM)
-
+  // ============================================================== crypto
+  let aeadKey = null;
   async function deriveKey(pairingKeyBytes) {
     const base = await crypto.subtle.importKey("raw", pairingKeyBytes, "HKDF", false, ["deriveBits"]);
     const bits = await crypto.subtle.deriveBits(
@@ -38,7 +35,6 @@
     );
     return crypto.subtle.importKey("raw", bits, "AES-GCM", false, ["encrypt", "decrypt"]);
   }
-
   async function sealText(text) {
     const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
     const ct = new Uint8Array(
@@ -49,20 +45,16 @@
     blob.set(ct, IV_LEN);
     return b64urlEncode(blob);
   }
-
   async function openText(blobB64) {
     const blob = b64urlDecode(blobB64);
-    const iv = blob.slice(0, IV_LEN);
-    const ct = blob.slice(IV_LEN);
-    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv, tagLength: 128 }, aeadKey, ct);
+    const pt = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: blob.slice(0, IV_LEN), tagLength: 128 }, aeadKey, blob.slice(IV_LEN)
+    );
     return new TextDecoder().decode(pt);
   }
+  function nonce() { return b64urlEncode(crypto.getRandomValues(new Uint8Array(16))); }
 
-  // ---- api ---------------------------------------------------------------------------------------
-  function nonce() {
-    return b64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
-  }
-
+  // ============================================================== api
   async function call(req, signal) {
     const body = await sealText(JSON.stringify(Object.assign({ ts: Date.now(), nonce: nonce() }, req)));
     const res = await fetch("api", { method: "POST", headers: { "Content-Type": "text/plain" }, body, signal });
@@ -73,361 +65,491 @@
     }
     return JSON.parse(await openText(await res.text()));
   }
-
   async function query(domain, op, extra) {
-    const api = await call(Object.assign({ kind: "query", domain, op: op || "list", limit: 500 }, extra || {}));
+    const api = await call(Object.assign({ kind: "query", domain, op: op || "list", limit: 1000 }, extra || {}));
     if (!api.ok) throw new Error(api.error || "request failed");
     const page = api.dataJson ? JSON.parse(api.dataJson) : { payloadJson: "[]" };
     return JSON.parse(page.payloadJson || "[]");
   }
-
   async function mutate(domain, op, payload) {
     const api = await call({ kind: "mutate", domain, op, payloadJson: JSON.stringify(payload || {}) });
     if (!api.ok) throw new Error(api.error || "save failed");
     return api.dataJson ? JSON.parse(api.dataJson) : null;
   }
-
   async function hello() {
     const api = await call({ kind: "hello" });
     return api.ok && api.dataJson ? JSON.parse(api.dataJson) : { readOnly: false };
   }
 
-  // ---- state + render ----------------------------------------------------------------------------
-  const el = (id) => document.getElementById(id);
-  const state = { tasks: [], notes: [], calendar: [], time: [], habits: [] };
-  const TABS = [
-    { key: "tasks", tab: "tabTasks", view: "tasksView" },
-    { key: "notes", tab: "tabNotes", view: "notesView" },
-    { key: "calendar", tab: "tabCalendar", view: "calendarView" },
-    { key: "time", tab: "tabTime", view: "timeView" },
-    { key: "habits", tab: "tabHabits", view: "habitsView" },
-  ];
-  let seen = {}; // last-seen change versions per domain
-  let tab = "tasks";
-  let selectMode = false;
-  let readOnly = false; // a share-link client: read + live refresh, no edits
-  const selected = new Set();
+  // ============================================================== state
+  const DOMAINS = ["tasks", "notes", "calendar", "time", "habits"];
+  const state = { tasks: [], lists: [], notes: [], calendar: [], time: [], habits: [] };
+  let seen = {};
+  let readOnly = false;
 
-  function setStatus(msg, kind) {
-    const s = el("status");
-    s.textContent = msg || "";
-    s.hidden = !msg;
-    el("statusDot").className = "dot" + (kind ? " " + kind : "");
+  const ui = {
+    domain: "tasks",
+    taskView: "list", // list | board | matrix
+    taskFilter: { kind: "smart", value: "all" }, // smart:(all|today|upcoming|starred|completed) | list:<id>
+    sel: null, // { domain, id } for the inspector
+    sidebar: true,
+  };
+  function loadUi() {
+    try {
+      const s = JSON.parse(localStorage.getItem("hexis_ui") || "{}");
+      if (DOMAINS.includes(s.domain)) ui.domain = s.domain;
+      if (["list", "board", "matrix"].includes(s.taskView)) ui.taskView = s.taskView;
+      if (s.taskFilter && s.taskFilter.kind) ui.taskFilter = s.taskFilter;
+      if (typeof s.sidebar === "boolean") ui.sidebar = s.sidebar;
+    } catch (_e) { /* defaults */ }
+  }
+  function saveUi() {
+    try {
+      localStorage.setItem("hexis_ui", JSON.stringify({
+        domain: ui.domain, taskView: ui.taskView, taskFilter: ui.taskFilter, sidebar: ui.sidebar,
+      }));
+    } catch (_e) { /* private mode */ }
   }
 
+  // ============================================================== helpers
+  const el = (id) => document.getElementById(id);
+  const app = () => el("app");
   function esc(s) {
     return (s == null ? "" : String(s)).replace(/[&<>"]/g, (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])
-    );
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   }
-
+  const DAY = 86400000;
+  function startOfToday() { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
   function fmtDate(ms) {
     if (!ms) return "";
-    try {
-      return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    } catch (_e) {
-      return "";
-    }
+    try { return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" }); } catch (_e) { return ""; }
+  }
+  function fmtDateTime(ms) {
+    if (!ms) return "";
+    try { return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (_e) { return ""; }
+  }
+  function fmtTime(ms) {
+    if (!ms) return "";
+    try { return new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }); } catch (_e) { return ""; }
+  }
+  function fmtDuration(min) {
+    const m = Math.max(0, Math.round(min || 0));
+    if (m < 60) return m + "m";
+    const h = Math.floor(m / 60), r = m % 60;
+    return r ? h + "h " + r + "m" : h + "h";
   }
   function toDateInput(ms) {
     if (!ms) return "";
-    const d = new Date(ms);
-    const p = (n) => String(n).padStart(2, "0");
+    const d = new Date(ms), p = (n) => String(n).padStart(2, "0");
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
   }
   function fromDateInput(v) {
     if (!v) return null;
     const [y, m, d] = v.split("-").map(Number);
-    return new Date(y, m - 1, d, 12, 0, 0, 0).getTime(); // local noon, avoids TZ day-shift
-  }
-  function fmtTime(ms) {
-    if (!ms) return "";
-    try {
-      return new Date(ms).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-    } catch (_e) {
-      return "";
-    }
-  }
-  function fmtDateTime(ms) {
-    if (!ms) return "";
-    try {
-      return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    } catch (_e) {
-      return "";
-    }
-  }
-  function fmtDuration(min) {
-    const m = Math.max(0, Math.round(min || 0));
-    if (m < 60) return m + "m";
-    const h = Math.floor(m / 60);
-    const r = m % 60;
-    return r ? h + "h " + r + "m" : h + "h";
+    return new Date(y, m - 1, d, 12, 0, 0, 0).getTime();
   }
   function argb(color) {
     if (color == null) return null;
     const n = (Number(color) >>> 0) & 0xffffff;
     return "#" + n.toString(16).padStart(6, "0");
   }
+  function dueClass(t) {
+    if (!t.dueDate || t.completed) return "";
+    if (t.dueDate < startOfToday()) return "overdue";
+    if (t.dueDate < startOfToday() + DAY) return "today";
+    return "";
+  }
 
+  let toastTimer = null;
+  function toast(msg) {
+    const t = el("toast");
+    t.textContent = msg;
+    t.hidden = false;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.hidden = true; }, 3200);
+  }
+  function setStatus(msg, kind) {
+    const s = el("status");
+    s.textContent = msg || "";
+    s.hidden = !msg;
+    s.className = "status" + (kind ? " " + kind : "");
+  }
+  function setConn(kind) { el("connDot").className = "dot" + (kind ? " " + kind : ""); }
+
+  // ============================================================== data load
+  const DOMAIN_RENDER = {}; // domain -> () => void (set after render fns defined)
+  async function reloadDomain(d) {
+    if (d === "tasks") {
+      const [tasks, lists] = await Promise.all([query("tasks", "list"), query("tasks", "lists").catch(() => [])]);
+      state.tasks = tasks; state.lists = lists;
+    } else {
+      state[d] = await query(d, "list");
+    }
+  }
+  async function reload(domain) {
+    const domains = domain ? [domain] : DOMAINS;
+    await Promise.all(domains.map(reloadDomain));
+  }
+  async function loadAll() {
+    setStatus("Loading…", "");
+    try { await reload(); setStatus("", "ok"); } catch (e) {
+      setStatus("Could not load. Make sure Hexis is connected on your phone. (" + e.message + ")", "err");
+      throw e;
+    }
+  }
+
+  // ============================================================== render shell
+  function render() {
+    app().dataset.domain = ui.domain;
+    app().dataset.sidebar = ui.sidebar ? "open" : "closed";
+    document.querySelectorAll(".rail-btn[data-domain]").forEach((b) => {
+      b.classList.toggle("active", b.dataset.domain === ui.domain);
+    });
+    renderSidebar();
+    renderMain();
+    renderInspector();
+  }
+
+  function selectDomain(d) {
+    ui.domain = d;
+    if (ui.sel && ui.sel.domain !== d) closeInspector();
+    saveUi();
+    render();
+  }
+
+  // ============================================================== sidebar
+  function renderSidebar() {
+    const sb = el("sidebar");
+    if (ui.domain === "tasks") { sb.innerHTML = tasksSidebar(); return; }
+    if (ui.domain === "notes") { sb.innerHTML = simpleSidebar("Notes", [["all", "All notes"]], "all"); return; }
+    if (ui.domain === "calendar") { sb.innerHTML = simpleSidebar("Calendar", [["upcoming", "Upcoming"]], "upcoming"); return; }
+    if (ui.domain === "time") { sb.innerHTML = simpleSidebar("Time", [["recent", "Recent"]], "recent"); return; }
+    if (ui.domain === "habits") { sb.innerHTML = simpleSidebar("Habits", [["all", "Today"]], "all"); return; }
+  }
+  function simpleSidebar(title, items, active) {
+    return '<h2 class="sb-title">' + esc(title) + "</h2><ul class=\"sb-list\">" +
+      items.map((i) => '<li class="sb-item active">' + esc(i[1]) + "</li>").join("") + "</ul>";
+  }
+  function tasksSidebar() {
+    const f = ui.taskFilter;
+    const smart = [
+      ["all", "All", "&#x2630;"], ["today", "Today", "&#x2600;"], ["upcoming", "Upcoming", "&#x25B8;"],
+      ["starred", "Starred", "&#x2605;"], ["completed", "Completed", "&#x2713;"],
+    ];
+    const smartHtml = smart.map((s) => {
+      const on = f.kind === "smart" && f.value === s[0];
+      const count = s[0] === "completed" ? "" : countSmart(s[0]);
+      return '<li class="sb-item' + (on ? " active" : "") + '" data-smart="' + s[0] + '">' +
+        '<span class="sb-ico">' + s[2] + "</span><span class=\"sb-label\">" + s[1] + "</span>" +
+        (count ? '<span class="sb-count">' + count + "</span>" : "") + "</li>";
+    }).join("");
+    const listsHtml = state.lists.map((l) => {
+      const on = f.kind === "list" && f.value === l.id;
+      const dot = argb(l.colorArgb);
+      return '<li class="sb-item' + (on ? " active" : "") + '" data-list="' + esc(l.id) + '">' +
+        '<span class="sb-ico">' + (l.emoji ? esc(l.emoji) : (dot ? '<span class="sb-dot" style="background:' + dot + '"></span>' : "&#x2219;")) + "</span>" +
+        '<span class="sb-label">' + esc(l.name) + "</span>" +
+        (l.count ? '<span class="sb-count">' + l.count + "</span>" : "") + "</li>";
+    }).join("");
+    return '<h2 class="sb-title">Tasks</h2>' +
+      '<ul class="sb-list">' + smartHtml + "</ul>" +
+      (listsHtml ? '<h3 class="sb-sub">Lists</h3><ul class="sb-list">' + listsHtml + "</ul>" : "");
+  }
+  function countSmart(kind) {
+    const open = state.tasks.filter((t) => !t.completed);
+    if (kind === "all") return open.length;
+    if (kind === "today") return open.filter((t) => t.dueDate && t.dueDate < startOfToday() + DAY).length;
+    if (kind === "upcoming") return open.filter((t) => t.dueDate && t.dueDate >= startOfToday() + DAY).length;
+    if (kind === "starred") return open.filter((t) => t.star).length;
+    return 0;
+  }
+
+  // ============================================================== main (dispatch)
+  function renderMain() {
+    const head = el("mainHead"), body = el("mainBody");
+    body.onclick = null;
+    if (ui.domain === "tasks") { head.innerHTML = tasksHead(); body.innerHTML = tasksMain(); wireTasksMain(); }
+    else if (ui.domain === "notes") { head.innerHTML = headTitle("Notes", readOnly ? "" : '<button class="btn primary" data-new="note">New note</button>'); body.innerHTML = notesMain(); body.onclick = onNotesClick; }
+    else if (ui.domain === "calendar") { head.innerHTML = headTitle("Calendar", ""); body.innerHTML = calendarMain(); }
+    else if (ui.domain === "time") { head.innerHTML = headTitle("Time", ""); body.innerHTML = timeMain(); }
+    else if (ui.domain === "habits") { head.innerHTML = headTitle("Habits", ""); body.innerHTML = habitsMain(); }
+    const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
+    const nb = head.querySelector('[data-new="note"]'); if (nb) nb.onclick = () => openInspector("notes", "__new__");
+  }
+  function onNotesClick(e) {
+    const card = e.target.closest(".ncard");
+    if (card) openInspector("notes", card.dataset.id);
+  }
+  function headTitle(title, right) {
+    return '<button class="icon-btn sb-toggle" id="sbToggle" title="Toggle sidebar" aria-label="Toggle sidebar">&#9776;</button>' +
+      '<h1 class="main-title">' + esc(title) + "</h1><span class=\"head-spacer\"></span>" + (right || "");
+  }
+
+  // ---- Tasks -------------------------------------------------------------
+  function filteredTasks() {
+    const f = ui.taskFilter;
+    let ts = state.tasks.slice();
+    if (f.kind === "list") return ts.filter((t) => t.listId === f.value);
+    if (f.value === "completed") return ts.filter((t) => t.completed);
+    const open = ts.filter((t) => !t.completed);
+    if (f.value === "today") return open.filter((t) => t.dueDate && t.dueDate < startOfToday() + DAY);
+    if (f.value === "upcoming") return open.filter((t) => t.dueDate && t.dueDate >= startOfToday() + DAY);
+    if (f.value === "starred") return open.filter((t) => t.star);
+    return open; // all
+  }
+  function tasksHead() {
+    const views = [["list", "List"], ["board", "Board"], ["matrix", "Matrix"]];
+    const seg = views.map((v) => '<button class="seg' + (ui.taskView === v[0] ? " on" : "") + '" data-view="' + v[0] + '">' + v[1] + "</button>").join("");
+    return '<button class="icon-btn sb-toggle" id="sbToggle" title="Toggle sidebar">&#9776;</button>' +
+      '<h1 class="main-title">' + esc(filterLabel()) + "</h1>" +
+      '<div class="segmented">' + seg + "</div><span class=\"head-spacer\"></span>";
+  }
+  function filterLabel() {
+    const f = ui.taskFilter;
+    if (f.kind === "list") { const l = state.lists.find((x) => x.id === f.value); return l ? l.name : "List"; }
+    return { all: "All tasks", today: "Today", upcoming: "Upcoming", starred: "Starred", completed: "Completed" }[f.value] || "Tasks";
+  }
+  function tasksMain() {
+    const quick = readOnly ? "" :
+      '<form id="quickAdd" class="quickadd"><input id="quickAddInput" type="text" autocomplete="off" ' +
+      'placeholder="Add a task…  (use ! for a due date, * to star)" /><button type="submit">Add</button></form>';
+    let view;
+    if (ui.taskView === "matrix") view = tasksMatrix();
+    else if (ui.taskView === "board") view = tasksBoard();
+    else view = tasksList();
+    return quick + view;
+  }
+  function tasksList() {
+    const ts = filteredTasks();
+    if (!ts.length) return emptyState("No tasks here", "Add one above or pick another list.");
+    // order: incomplete by sortOrder, then completed
+    const open = ts.filter((t) => !t.completed).sort((a, b) => a.sortOrder - b.sortOrder);
+    const done = ts.filter((t) => t.completed).sort((a, b) => b.updatedAt - a.updatedAt);
+    const rows = open.map(taskRow).join("");
+    const doneRows = done.length ? '<h3 class="group-h">Completed</h3><ul class="tlist">' + done.map(taskRow).join("") + "</ul>" : "";
+    return '<ul class="tlist">' + rows + "</ul>" + doneRows;
+  }
   function taskRow(t) {
-    if (readOnly) {
-      return (
-        '<li class="row' + (t.completed ? " done" : "") + '">' +
-        '<span class="box" aria-hidden="true">' + (t.completed ? "&#x2713;" : "") + "</span>" +
-        '<span class="label">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
-        (t.dueDate ? '<span class="due">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
-        "</li>"
-      );
-    }
-    if (selectMode) {
-      const on = selected.has(t.id);
-      return (
-        '<li class="row sel' + (on ? " on" : "") + (t.completed ? " done" : "") + '" data-id="' + esc(t.id) + '">' +
-        '<span class="box' + (on ? " checked" : "") + '" aria-hidden="true">' + (on ? "&#x2713;" : "") + "</span>" +
-        '<span class="label">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
-        (t.dueDate ? '<span class="due">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
-        "</li>"
-      );
-    }
-    return (
-      '<li class="row' + (t.completed ? " done" : "") + '" data-id="' + esc(t.id) + '">' +
-      '<button class="box" data-act="toggle" aria-label="Toggle complete">' + (t.completed ? "&#x2713;" : "") + "</button>" +
-      '<span class="label" data-act="edit">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
-      (t.dueDate ? '<span class="due">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
-      '<button class="del" data-act="del" aria-label="Delete" title="Move to Trash">&#x2715;</button>' +
-      "</li>"
-    );
+    const sel = ui.sel && ui.sel.domain === "tasks" && ui.sel.id === t.id;
+    const indent = t.parentId ? ' style="padding-left:34px"' : "";
+    return '<li class="trow' + (t.completed ? " done" : "") + (sel ? " sel" : "") + '" data-id="' + esc(t.id) + '"' + indent + ">" +
+      '<button class="check" data-act="toggle" aria-label="Complete">' + (t.completed ? "&#x2713;" : "") + "</button>" +
+      '<span class="trow-main" data-act="open">' +
+      '<span class="trow-title">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
+      (t.note ? '<span class="trow-note">' + esc(t.note.slice(0, 80)) + "</span>" : "") + "</span>" +
+      (t.dueDate ? '<span class="due ' + dueClass(t) + '">' + esc(fmtDate(t.dueDate)) + "</span>" : "") +
+      (readOnly ? "" : '<button class="star-btn" data-act="star" aria-label="Star">' + (t.star ? "&#x2605;" : "&#x2606;") + "</button>") +
+      "</li>";
+  }
+  function tasksBoard() {
+    const ts = filteredTasks().filter((t) => !t.completed);
+    const buckets = [
+      ["overdue", "Overdue"], ["today", "Today"], ["soon", "Next 7 days"], ["later", "Later"], ["none", "No date"],
+    ];
+    const t0 = startOfToday();
+    const place = (t) => !t.dueDate ? "none" : t.dueDate < t0 ? "overdue" : t.dueDate < t0 + DAY ? "today" : t.dueDate < t0 + 7 * DAY ? "soon" : "later";
+    const cols = buckets.map((b) => {
+      const items = ts.filter((t) => place(t) === b[0]).sort((a, b2) => (a.dueDate || 0) - (b2.dueDate || 0));
+      const cards = items.map(taskCard).join("") || '<p class="col-empty">—</p>';
+      return '<div class="bcol" data-bucket="' + b[0] + '"><h3 class="bcol-h">' + b[1] + ' <span class="bcol-n">' + items.length + "</span></h3>" +
+        '<div class="bcol-body">' + cards + "</div></div>";
+    }).join("");
+    return '<div class="board">' + cols + "</div>";
+  }
+  function taskCard(t) {
+    return '<div class="tcard" draggable="' + (!readOnly) + '" data-id="' + esc(t.id) + '" data-act="open">' +
+      '<span class="tcard-title">' + (t.star ? '<span class="star">&#x2605;</span> ' : "") + esc(t.title) + "</span>" +
+      (t.dueDate ? '<span class="due ' + dueClass(t) + '">' + esc(fmtDate(t.dueDate)) + "</span>" : "") + "</div>";
+  }
+  const QUADS = [
+    { q: 0, name: "Urgent & Important", hint: "Do first" },
+    { q: 1, name: "Important, Not Urgent", hint: "Schedule" },
+    { q: 2, name: "Urgent, Not Important", hint: "Delegate" },
+    { q: 3, name: "Neither", hint: "Later" },
+  ];
+  function quadrantOf(t) { // mirrors PriorityEngine.quadrant (threshold 4)
+    const important = (t.importance || 0) >= 4, urgent = (t.urgency || 0) >= 4;
+    return urgent && important ? 0 : !urgent && important ? 1 : urgent && !important ? 2 : 3;
+  }
+  function tasksMatrix() {
+    const ts = filteredTasks().filter((t) => !t.completed);
+    const cells = QUADS.map((qd) => {
+      const items = ts.filter((t) => quadrantOf(t) === qd.q).sort((a, b) => (a.dueDate || 1e15) - (b.dueDate || 1e15));
+      const cards = items.map(taskCard).join("") || '<p class="col-empty">—</p>';
+      return '<div class="quad q' + qd.q + '" data-quad="' + qd.q + '">' +
+        '<div class="quad-h"><span>' + esc(qd.name) + '</span><span class="quad-hint">' + esc(qd.hint) + "</span></div>" +
+        '<div class="quad-body">' + cards + "</div></div>";
+    }).join("");
+    return '<div class="matrix">' + cells + "</div>";
   }
 
-  function renderTasks() {
-    const tasks = state.tasks;
-    const open = tasks.filter((t) => !t.completed);
-    const done = tasks.filter((t) => t.completed);
-    const bulkBar =
-      selectMode && selected.size
-        ? '<div class="bulkbar"><span>' + selected.size + " selected</span>" +
-          '<span class="spacer"></span>' +
-          '<button data-bulk="complete">Complete</button>' +
-          '<button data-bulk="star">Star</button>' +
-          '<button data-bulk="delete" class="danger">Delete</button></div>'
-        : "";
-    const tools = readOnly
-      ? ""
-      : '<div class="tasktools">' +
-        (selectMode
-          ? '<span class="hint">Tap tasks to select</span>'
-          : '<form id="addTask" class="add"><input id="addTaskInput" type="text" placeholder="Add a task…" autocomplete="off" />' +
-            '<button type="submit">Add</button></form>') +
-        '<button id="selectToggle" class="ghost">' + (selectMode ? "Done" : "Select") + "</button>" +
-        "</div>";
-    el("tasksView").innerHTML =
-      tools +
-      bulkBar +
-      (open.length ? '<ul class="list">' + open.map(taskRow).join("") + "</ul>" : '<p class="empty">No open tasks.</p>') +
-      (done.length ? '<h3 class="subhead">Completed</h3><ul class="list">' + done.map(taskRow).join("") + "</ul>" : "");
+  // ---- Notes (card grid; editor in inspector) ----------------------------
+  function notesMain() {
+    const notes = state.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt));
+    if (!notes.length) return emptyState("No notes", readOnly ? "" : "Create one with “New note”.");
+    return '<div class="ncards">' + notes.map((n) => {
+      const sel = ui.sel && ui.sel.domain === "notes" && ui.sel.id === n.id;
+      return '<article class="ncard' + (sel ? " sel" : "") + '" data-id="' + esc(n.id) + '" data-act="open">' +
+        (n.pinned ? '<span class="pin">&#x1F4CC;</span>' : "") +
+        "<h4>" + esc(n.title || "Untitled") + "</h4>" +
+        '<p>' + esc((n.body || "").slice(0, 240)) + "</p></article>";
+    }).join("") + "</div>";
   }
 
-  function renderNotes() {
-    const sorted = state.notes.slice().sort((a, b) => (b.pinned - a.pinned) || (b.updatedAt - a.updatedAt));
-    el("notesView").innerHTML =
-      (readOnly ? "" : '<div class="add"><button id="addNote" type="button">New note</button></div>') +
-      (sorted.length
-        ? '<div class="cards">' +
-          sorted
-            .map(
-              (n) =>
-                '<article class="card" data-id="' + esc(n.id) + '">' +
-                (n.pinned ? '<span class="pin">&#x1f4cc;</span>' : "") +
-                "<h4>" + esc(n.title || "Untitled") + "</h4>" +
-                "<p>" + esc((n.body || "").slice(0, 280)) + "</p>" +
-                "</article>"
-            )
-            .join("") +
-          "</div>"
-        : '<p class="empty">No notes.</p>');
-  }
-
-  function renderCalendar() {
+  // ---- Calendar / Time / Habits (read lists for R3a) ---------------------
+  function calendarMain() {
     const now = Date.now();
-    const upcoming = state.calendar
-      .filter((e) => (e.endMillis || e.startMillis) >= now - 12 * 3600 * 1000)
-      .slice(0, 200);
-    if (!upcoming.length) {
-      el("calendarView").innerHTML = '<p class="empty">No upcoming events.</p>';
-      return;
-    }
-    const row = (e) => {
+    const up = state.calendar.filter((e) => (e.endMillis || e.startMillis) >= now - 12 * 3600000).slice(0, 300);
+    if (!up.length) return emptyState("No upcoming events", "");
+    return '<ul class="elist">' + up.map((e) => {
       const when = e.allDay ? fmtDate(e.startMillis) + " · all day" : fmtDateTime(e.startMillis) + "–" + fmtTime(e.endMillis);
-      const dot = argb(e.colorArgb);
-      return (
-        '<li class="erow">' +
-        '<span class="cdot" style="background:' + (dot || "var(--accent)") + '"></span>' +
+      const dot = argb(e.colorArgb) || "var(--accent)";
+      return '<li class="erow"><span class="cdot" style="background:' + dot + '"></span>' +
         '<span class="einfo"><span class="etitle">' + esc(e.title || "Untitled") + "</span>" +
-        '<span class="emeta">' + esc(when) + (e.location ? " · " + esc(e.location) : "") +
-        (e.calendarName ? " · " + esc(e.calendarName) : "") + "</span></span>" +
-        (e.recurring ? '<span class="chip">↻</span>' : "") +
-        "</li>"
-      );
-    };
-    el("calendarView").innerHTML = '<ul class="list">' + upcoming.map(row).join("") + "</ul>";
+        '<span class="emeta">' + esc(when) + (e.location ? " · " + esc(e.location) : "") + (e.calendarName ? " · " + esc(e.calendarName) : "") + "</span></span>" +
+        (e.recurring ? '<span class="chip">&#x21BB;</span>' : "") + "</li>";
+    }).join("") + "</ul>";
   }
-
-  function renderTime() {
-    const entries = state.time.slice(0, 200);
-    const todayStart = new Date().setHours(0, 0, 0, 0);
-    const todayMin = entries
-      .filter((e) => e.startMillis >= todayStart)
-      .reduce((sum, e) => sum + (e.minutes || 0), 0);
-    if (!entries.length) {
-      el("timeView").innerHTML = '<p class="empty">No time entries.</p>';
-      return;
-    }
-    const row = (e) =>
-      '<li class="erow">' +
-      '<span class="einfo"><span class="etitle">' + esc(e.activityName || "Activity") +
+  function timeMain() {
+    const entries = state.time.slice(0, 300);
+    const t0 = startOfToday();
+    const todayMin = entries.filter((e) => e.startMillis >= t0).reduce((s, e) => s + (e.minutes || 0), 0);
+    if (!entries.length) return emptyState("No time entries", "");
+    const rows = entries.map((e) =>
+      '<li class="erow"><span class="einfo"><span class="etitle">' + esc(e.activityName || "Activity") +
       (e.running ? ' <span class="chip live">● live</span>' : "") + "</span>" +
       '<span class="emeta">' + esc(fmtDateTime(e.startMillis)) + (e.note ? " · " + esc(e.note) : "") + "</span></span>" +
-      '<span class="dur">' + esc(fmtDuration(e.minutes)) + "</span>" +
-      "</li>";
-    el("timeView").innerHTML =
-      '<div class="summary">Today · <strong>' + esc(fmtDuration(todayMin)) + "</strong> tracked</div>" +
-      '<ul class="list">' + entries.map(row).join("") + "</ul>";
+      '<span class="dur">' + esc(fmtDuration(e.minutes)) + "</span></li>").join("");
+    return '<div class="summary">Today · <strong>' + esc(fmtDuration(todayMin)) + "</strong> tracked</div><ul class=\"elist\">" + rows + "</ul>";
   }
-
-  function renderHabits() {
+  function habitsMain() {
     const habits = state.habits;
-    if (!habits.length) {
-      el("habitsView").innerHTML = '<p class="empty">No habits.</p>';
-      return;
+    if (!habits.length) return emptyState("No habits", "");
+    const row = (h) => '<li class="trow' + (h.doneToday ? " done" : "") + '">' +
+      '<span class="check static">' + (h.doneToday ? "&#x2713;" : "") + "</span>" +
+      '<span class="trow-main"><span class="trow-title">' + (h.emoji ? esc(h.emoji) + " " : "") + esc(h.name) +
+      (h.paused ? ' <span class="chip">paused</span>' : "") + "</span></span>" +
+      (h.targetPerDay > 1 ? '<span class="due">' + (h.todayCount || 0) + "/" + h.targetPerDay + "</span>" : "") + "</li>";
+    const active = habits.filter((h) => !h.paused), paused = habits.filter((h) => h.paused);
+    return '<ul class="tlist">' + active.map(row).join("") + "</ul>" +
+      (paused.length ? '<h3 class="group-h">Paused</h3><ul class="tlist">' + paused.map(row).join("") + "</ul>" : "");
+  }
+
+  function emptyState(title, sub) {
+    return '<div class="empty-state"><div class="empty-ic">&#9671;</div><h3>' + esc(title) + "</h3>" +
+      (sub ? "<p>" + esc(sub) + "</p>" : "") + "</div>";
+  }
+
+  // ============================================================== inspector
+  function openInspector(domain, id) { ui.sel = { domain, id }; app().dataset.inspector = "open"; el("inspector").hidden = false; renderInspector(); if (window.innerWidth < 1100) el("scrim").hidden = false; }
+  function closeInspector() { ui.sel = null; app().dataset.inspector = "closed"; el("inspector").hidden = true; el("scrim").hidden = true; document.querySelectorAll(".trow.sel,.ncard.sel").forEach((n) => n.classList.remove("sel")); }
+  function renderInspector() {
+    if (!ui.sel) return;
+    const ins = el("inspector");
+    if (ui.sel.domain === "tasks") {
+      const t = state.tasks.find((x) => x.id === ui.sel.id);
+      if (!t) { closeInspector(); return; }
+      ins.innerHTML = taskInspector(t);
+      wireTaskInspector(t);
+    } else if (ui.sel.domain === "notes") {
+      const n = ui.sel.id === "__new__" ? { id: "", title: "", body: "", pinned: false, archived: false } : state.notes.find((x) => x.id === ui.sel.id);
+      if (!n) { closeInspector(); return; }
+      ins.innerHTML = noteInspector(n);
+      wireNoteInspector(n);
     }
-    const row = (h) => {
-      const done = h.doneToday;
-      const prog = h.targetPerDay > 1 ? " " + (h.todayCount || 0) + "/" + h.targetPerDay : "";
-      return (
-        '<li class="row' + (done ? " done" : "") + '">' +
-        '<span class="box" aria-hidden="true">' + (done ? "&#x2713;" : "") + "</span>" +
-        '<span class="label">' + (h.emoji ? esc(h.emoji) + " " : "") + esc(h.name) +
-        (h.paused ? ' <span class="chip">paused</span>' : "") + "</span>" +
-        (prog ? '<span class="due">' + esc(prog.trim()) + "</span>" : "") +
-        "</li>"
-      );
-    };
-    const active = habits.filter((h) => !h.paused);
-    const paused = habits.filter((h) => h.paused);
-    el("habitsView").innerHTML =
-      '<ul class="list">' + active.map(row).join("") + "</ul>" +
-      (paused.length ? '<h3 class="subhead">Paused</h3><ul class="list">' + paused.map(row).join("") + "</ul>" : "");
+  }
+  function inspectorHead(title) {
+    return '<div class="ins-head"><h2>' + esc(title) + '</h2><button class="icon-btn" id="insClose" title="Close (Esc)">&#x2715;</button></div>';
+  }
+  function taskInspector(t) {
+    const ro = readOnly ? " disabled" : "";
+    return inspectorHead("Task") +
+      '<div class="ins-body">' +
+      '<label class="fld"><span>Title</span><input id="iTitle" type="text" value="' + esc(t.title) + '"' + ro + "></label>" +
+      '<label class="fld"><span>Note</span><textarea id="iNote" rows="4"' + ro + ">" + esc(t.note || "") + "</textarea></label>" +
+      '<div class="fld-row">' +
+      '<label class="fld"><span>Due</span><input id="iDue" type="date" value="' + esc(toDateInput(t.dueDate)) + '"' + ro + "></label>" +
+      '<label class="fld chk"><input id="iStar" type="checkbox"' + (t.star ? " checked" : "") + ro + "> Star</label>" +
+      "</div>" +
+      '<div class="fld-row">' +
+      '<label class="fld chk"><input id="iImp" type="checkbox"' + ((t.importance || 0) >= 4 ? " checked" : "") + ro + "> Important</label>" +
+      '<label class="fld chk"><input id="iUrg" type="checkbox"' + ((t.urgency || 0) >= 4 ? " checked" : "") + ro + "> Urgent</label>" +
+      "</div>" +
+      (readOnly ? "" :
+        '<div class="ins-actions"><button class="btn danger" id="iDelete">Delete</button><span class="spacer"></span>' +
+        '<button class="btn primary" id="iSave">Save</button></div>') +
+      "</div>";
+  }
+  function noteInspector(n) {
+    const ro = readOnly ? " disabled" : "";
+    const isNew = !n.id;
+    return inspectorHead(isNew ? "New note" : "Note") +
+      '<div class="ins-body">' +
+      '<label class="fld"><span>Title</span><input id="iTitle" type="text" value="' + esc(n.title) + '"' + ro + "></label>" +
+      '<label class="fld grow"><span>Body</span><textarea id="iBody" rows="12"' + ro + ">" + esc(n.body) + "</textarea></label>" +
+      '<label class="fld chk"><input id="iPin" type="checkbox"' + (n.pinned ? " checked" : "") + ro + "> Pin</label>" +
+      '<div class="attachments" id="iAttach"></div>' +
+      (readOnly ? "" :
+        '<div class="ins-actions">' + (isNew ? "" : '<button class="btn danger" id="iDelete">Delete</button>') +
+        '<span class="spacer"></span><button class="btn primary" id="iSave">Save</button></div>') +
+      "</div>";
   }
 
-  function selectTab(which) {
-    tab = which;
-    for (const t of TABS) {
-      const on = t.key === which;
-      el(t.tab).setAttribute("aria-selected", String(on));
-      el(t.view).hidden = !on;
-    }
-  }
-
-  // ---- editor modal ------------------------------------------------------------------------------
-  function openModal(html, onSave, onDelete) {
-    const back = document.createElement("div");
-    back.className = "modal-back";
-    const actions = onSave
-      ? (onDelete ? '<button class="danger" data-m="del">Delete</button>' : "") +
-        '<span class="spacer"></span>' +
-        '<button data-m="cancel">Cancel</button><button class="primary" data-m="save">Save</button>'
-      : '<span class="spacer"></span><button class="primary" data-m="cancel">Close</button>';
-    back.innerHTML =
-      '<div class="modal" role="dialog" aria-modal="true">' + html +
-      '<div class="modal-actions">' + actions + "</div></div>";
-    const close = () => back.remove();
-    back.addEventListener("click", (e) => {
-      if (e.target === back || e.target.dataset.m === "cancel") close();
-      else if (e.target.dataset.m === "save") Promise.resolve(onSave(back)).then(close).catch((err) => alert(err.message));
-      else if (e.target.dataset.m === "del") {
-        if (confirm("Move to Trash?")) Promise.resolve(onDelete(back)).then(close).catch((err) => alert(err.message));
-      }
-    });
-    document.body.appendChild(back);
-    const first = back.querySelector("input, textarea");
-    if (first) first.focus();
-  }
-
-  function editTask(t) {
-    openModal(
-      '<h3>Edit task</h3>' +
-        '<label>Title<input id="mTitle" type="text" value="' + esc(t.title) + '" /></label>' +
-        '<label>Note<textarea id="mNote" rows="3">' + esc(t.note || "") + "</textarea></label>" +
-        '<label>Due<input id="mDue" type="date" value="' + esc(toDateInput(t.dueDate)) + '" /></label>' +
-        '<label class="check"><input id="mStar" type="checkbox"' + (t.star ? " checked" : "") + " /> Star</label>",
-      async (root) => {
-        const title = root.querySelector("#mTitle").value.trim();
-        if (!title) throw new Error("Title can't be empty");
-        await mutate("tasks", "upsert", {
-          id: t.id,
-          title,
-          note: root.querySelector("#mNote").value,
-          dueDate: fromDateInput(root.querySelector("#mDue").value),
-          importance: t.importance,
-          urgency: t.urgency,
-          star: root.querySelector("#mStar").checked,
-        });
-        await reload("tasks");
-      },
-      async () => {
-        await mutate("tasks", "delete", { id: t.id });
-        await reload("tasks");
-      }
-    );
-  }
-
-  function viewNote(n) {
-    openModal(
-      "<h3>" + esc(n.title || "Untitled") + "</h3>" +
-        '<pre class="note-read">' + esc(n.body || "") + "</pre>" +
-        '<div class="attachments" id="mAttach"></div>',
-      null,
-      null
-    );
-    loadAttachments(n.id);
-  }
-
-  function editNote(n) {
-    if (readOnly && n) return viewNote(n);
-    const isNew = !n;
-    n = n || { id: "", title: "", body: "", pinned: false };
-    openModal(
-      "<h3>" + (isNew ? "New note" : "Edit note") + "</h3>" +
-        '<label>Title<input id="mTitle" type="text" value="' + esc(n.title) + '" /></label>' +
-        '<label>Body<textarea id="mBody" rows="8">' + esc(n.body) + "</textarea></label>" +
-        '<label class="check"><input id="mPin" type="checkbox"' + (n.pinned ? " checked" : "") + " /> Pin</label>" +
-        (isNew ? "" : '<div class="attachments" id="mAttach"></div>'),
-      async (root) => {
-        await mutate("notes", "upsert", {
-          id: n.id,
-          title: root.querySelector("#mTitle").value,
-          body: root.querySelector("#mBody").value,
-          pinned: root.querySelector("#mPin").checked,
-        });
-        await reload("notes");
-      },
-      isNew ? null : async () => {
-        await mutate("notes", "delete", { id: n.id });
-        await reload("notes");
-      }
-    );
-    if (!isNew) loadAttachments(n.id);
-  }
-
-  async function loadAttachments(noteId) {
-    const box = el("mAttach");
-    if (!box) return;
-    let list;
+  // ============================================================== mutations (tasks/notes)
+  async function saveTask(t, patch) {
     try {
-      list = await query("notes", "attachments", { paramsJson: JSON.stringify({ id: noteId }) });
-    } catch (_e) {
-      return;
-    }
+      await mutate("tasks", "upsert", Object.assign({
+        id: t.id, title: t.title, note: t.note, dueDate: t.dueDate, startDate: t.startDate,
+        importance: t.importance, urgency: t.urgency, star: t.star,
+      }, patch));
+      await reloadDomain("tasks"); render();
+    } catch (e) { toast(e.message); }
+  }
+  async function wireTaskInspector(t) {
+    el("insClose").onclick = closeInspector;
+    if (readOnly) return;
+    el("iSave").onclick = async () => {
+      const title = el("iTitle").value.trim();
+      if (!title) { toast("Title can't be empty"); return; }
+      const imp = el("iImp").checked ? 5 : 3, urg = el("iUrg").checked ? 5 : 3;
+      try {
+        await mutate("tasks", "upsert", {
+          id: t.id, title, note: el("iNote").value, dueDate: fromDateInput(el("iDue").value),
+          startDate: t.startDate, importance: imp, urgency: urg, star: el("iStar").checked,
+        });
+        await reloadDomain("tasks"); render(); toast("Saved");
+      } catch (e) { toast(e.message); }
+    };
+    el("iDelete").onclick = async () => {
+      if (!confirm("Move this task to Trash?")) return;
+      try { await mutate("tasks", "delete", { id: t.id }); closeInspector(); await reloadDomain("tasks"); render(); } catch (e) { toast(e.message); }
+    };
+  }
+  async function wireNoteInspector(n) {
+    el("insClose").onclick = closeInspector;
+    if (!n.id) loadAttachments(null); else loadAttachments(n.id);
+    if (readOnly) return;
+    el("iSave").onclick = async () => {
+      try {
+        const res = await mutate("notes", "upsert", { id: n.id, title: el("iTitle").value, body: el("iBody").value, pinned: el("iPin").checked });
+        await reloadDomain("notes");
+        // keep the inspector open on the (possibly new) note
+        const newId = res && res.id ? res.id : n.id;
+        ui.sel = { domain: "notes", id: newId };
+        render(); toast("Saved");
+      } catch (e) { toast(e.message); }
+    };
+    const del = el("iDelete");
+    if (del) del.onclick = async () => {
+      if (!confirm("Move this note to Trash?")) return;
+      try { await mutate("notes", "delete", { id: n.id }); closeInspector(); await reloadDomain("notes"); render(); } catch (e) { toast(e.message); }
+    };
+  }
+  async function loadAttachments(noteId) {
+    const box = el("iAttach");
+    if (!box || !noteId) return;
+    let list;
+    try { list = await query("notes", "attachments", { paramsJson: JSON.stringify({ id: noteId }) }); } catch (_e) { return; }
     if (!list || !list.length) return;
     box.innerHTML = '<h4 class="att-h">Attachments</h4><div class="att-grid"></div>';
     const grid = box.querySelector(".att-grid");
@@ -437,274 +559,210 @@
       cell.innerHTML = '<span class="att-name">' + esc(a.fileName || "file") + "</span>";
       grid.appendChild(cell);
       if (a.isImage) {
-        query("notes", "attachmentData", { paramsJson: JSON.stringify({ id: a.id, noteId }) })
-          .then((d) => {
-            if (d && d.dataB64) {
-              const img = document.createElement("img");
-              img.loading = "lazy";
-              img.alt = a.fileName || "";
-              img.src = "data:" + (d.mime || "image/*") + ";base64," + d.dataB64;
-              cell.insertBefore(img, cell.firstChild);
-            } else {
-              cell.insertAdjacentHTML("afterbegin", '<span class="att-ph">image · open on phone</span>');
-            }
-          })
-          .catch(() => {});
-      } else {
-        cell.insertAdjacentHTML("afterbegin", '<span class="att-ph">open on phone</span>');
-      }
+        query("notes", "attachmentData", { paramsJson: JSON.stringify({ id: a.id, noteId }) }).then((d) => {
+          if (d && d.dataB64) {
+            const img = document.createElement("img");
+            img.loading = "lazy"; img.alt = a.fileName || "";
+            img.src = "data:" + (d.mime || "image/*") + ";base64," + d.dataB64;
+            cell.insertBefore(img, cell.firstChild);
+          } else cell.insertAdjacentHTML("afterbegin", '<span class="att-ph">open on phone</span>');
+        }).catch(() => {});
+      } else cell.insertAdjacentHTML("afterbegin", '<span class="att-ph">open on phone</span>');
     }
   }
 
-  // ---- events ------------------------------------------------------------------------------------
-  function wireViewEvents() {
-    el("tasksView").addEventListener("submit", async (e) => {
-      if (e.target.id !== "addTask") return;
+  // ============================================================== events
+  function wireTasksMain() {
+    const head = el("mainHead");
+    head.querySelectorAll(".seg").forEach((b) => b.onclick = () => { ui.taskView = b.dataset.view; saveUi(); renderMain(); });
+    const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
+    if (!readOnly) {
+      const form = el("quickAdd");
+      if (form) form.onsubmit = async (e) => {
+        e.preventDefault();
+        const input = el("quickAddInput");
+        const parsed = parseQuickAdd(input.value);
+        if (!parsed.title) return;
+        input.value = "";
+        try {
+          const payload = { id: "", title: parsed.title, star: parsed.star };
+          if (parsed.due != null) payload.dueDate = parsed.due;
+          if (ui.taskFilter.kind === "list") payload.listId = ui.taskFilter.value;
+          await mutate("tasks", "upsert", payload);
+          await reloadDomain("tasks"); render();
+        } catch (err) { toast(err.message); }
+      };
+    }
+    const body = el("mainBody");
+    body.onclick = onTasksClick;
+    // drag for board + matrix
+    if (!readOnly) wireTaskDrag(body);
+  }
+  function parseQuickAdd(raw) {
+    let title = (raw || "").trim();
+    let star = false, due = null;
+    if (/(^|\s)\*(\s|$)/.test(title)) { star = true; title = title.replace(/(^|\s)\*(\s|$)/, " ").trim(); }
+    const m = title.match(/!(today|tomorrow|mon|tue|wed|thu|fri|sat|sun)\b/i);
+    if (m) {
+      due = dueFromWord(m[1].toLowerCase());
+      title = title.replace(m[0], "").trim();
+    }
+    return { title, star, due };
+  }
+  function dueFromWord(w) {
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    if (w === "today") return d.getTime();
+    if (w === "tomorrow") return d.getTime() + DAY;
+    const map = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+    if (w in map) { let delta = (map[w] - d.getDay() + 7) % 7; if (delta === 0) delta = 7; return d.getTime() + delta * DAY; }
+    return d.getTime();
+  }
+  async function onTasksClick(e) {
+    const act = e.target.dataset.act;
+    const rowEl = e.target.closest("[data-id]");
+    if (!rowEl) return;
+    const t = state.tasks.find((x) => x.id === rowEl.dataset.id);
+    if (!t) return;
+    if (act === "toggle" && !readOnly) {
+      try { await mutate("tasks", "complete", { id: t.id, completed: !t.completed }); await reloadDomain("tasks"); render(); } catch (err) { toast(err.message); }
+    } else if (act === "star" && !readOnly) {
+      saveTask(t, { star: !t.star });
+    } else {
+      openInspector("tasks", t.id);
+      rowEl.classList.add("sel");
+    }
+  }
+  function wireTaskDrag(body) {
+    let dragId = null;
+    body.addEventListener("dragstart", (e) => { const c = e.target.closest("[data-id]"); if (c) { dragId = c.dataset.id; e.dataTransfer.effectAllowed = "move"; } });
+    body.addEventListener("dragover", (e) => { if (e.target.closest(".quad,.bcol")) e.preventDefault(); });
+    body.addEventListener("drop", async (e) => {
+      const quad = e.target.closest(".quad"), col = e.target.closest(".bcol");
+      if (!dragId || (!quad && !col)) return;
       e.preventDefault();
-      const input = el("addTaskInput");
-      const title = input.value.trim();
-      if (!title) return;
-      input.value = "";
-      try {
-        await mutate("tasks", "upsert", { id: "", title });
-        await reload("tasks");
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-    el("tasksView").addEventListener("click", async (e) => {
-      if (e.target.id === "selectToggle") {
-        selectMode = !selectMode;
-        selected.clear();
-        renderTasks();
-        return;
-      }
-      if (e.target.dataset.bulk) {
-        await doBulk(e.target.dataset.bulk);
-        return;
-      }
-      const li = e.target.closest(".row");
-      if (!li) return;
-      if (selectMode) {
-        if (selected.has(li.dataset.id)) selected.delete(li.dataset.id);
-        else selected.add(li.dataset.id);
-        renderTasks();
-        return;
-      }
-      const t = state.tasks.find((x) => x.id === li.dataset.id);
+      const t = state.tasks.find((x) => x.id === dragId); dragId = null;
       if (!t) return;
-      const act = e.target.dataset.act;
-      try {
-        if (act === "toggle") {
-          await mutate("tasks", "complete", { id: t.id, completed: !t.completed });
-          await reload("tasks");
-        } else if (act === "del") {
-          await mutate("tasks", "delete", { id: t.id });
-          await reload("tasks");
-        } else if (act === "edit") {
-          editTask(t);
-        }
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-    el("notesView").addEventListener("click", (e) => {
-      if (e.target.id === "addNote") return editNote(null);
-      const card = e.target.closest(".card");
-      if (card) {
-        const n = state.notes.find((x) => x.id === card.dataset.id);
-        if (n) editNote(n);
+      if (quad) {
+        const q = Number(quad.dataset.quad);
+        await saveTask(t, { importance: (q === 0 || q === 1) ? 5 : 3, urgency: (q === 0 || q === 2) ? 5 : 3 });
+      } else if (col) {
+        const b = col.dataset.bucket, t0 = startOfToday();
+        const due = b === "today" ? t0 + 12 * 3600000 : b === "soon" ? t0 + 3 * DAY + 12 * 3600000 : b === "later" ? t0 + 14 * DAY + 12 * 3600000 : b === "none" ? null : t0 - DAY + 12 * 3600000;
+        await saveTask(t, { dueDate: due });
       }
     });
   }
 
-  async function doBulk(action) {
-    const ids = [...selected];
-    if (!ids.length) return;
-    if (action === "delete" && !confirm("Move " + ids.length + " task(s) to Trash?")) return;
-    try {
-      await mutate("tasks", "bulk", { ids, action, value: true });
-      selectMode = false;
-      selected.clear();
-      await reload("tasks");
-    } catch (err) {
-      alert(err.message);
-    }
+  function wireSidebar() {
+    el("sidebar").addEventListener("click", (e) => {
+      const item = e.target.closest(".sb-item");
+      if (!item) return;
+      if (item.dataset.smart) { ui.taskFilter = { kind: "smart", value: item.dataset.smart }; }
+      else if (item.dataset.list) { ui.taskFilter = { kind: "list", value: item.dataset.list }; }
+      else return;
+      saveUi(); closeInspector(); render();
+      if (window.innerWidth < 960) { ui.sidebar = false; render(); }
+    });
+  }
+  function wireGlobal() {
+    document.querySelectorAll(".rail-btn[data-domain]").forEach((b) => b.onclick = () => selectDomain(b.dataset.domain));
+    el("themeBtn").onclick = toggleTheme;
+    el("scrim").onclick = () => { closeInspector(); if (window.innerWidth < 920) { ui.sidebar = false; render(); } };
+    document.addEventListener("keydown", onKey);
+  }
+  function toggleSidebar() { ui.sidebar = !ui.sidebar; saveUi(); render(); }
+  function onKey(e) {
+    if (e.key === "Escape" && ui.sel) { closeInspector(); return; }
+    const tag = (e.target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea") return;
+    if (e.key === "m" || e.key === "M") toggleSidebar();
   }
 
-  // ---- load + live refresh -----------------------------------------------------------------------
-  const DOMAIN_RENDER = {
-    tasks: renderTasks,
-    notes: renderNotes,
-    calendar: renderCalendar,
-    time: renderTime,
-    habits: renderHabits,
-  };
-
-  async function reloadDomain(d) {
-    state[d] = await query(d, "list");
-    DOMAIN_RENDER[d]();
+  let theme = null;
+  function toggleTheme() {
+    theme = theme === "dark" ? "light" : theme === "light" ? null : "dark";
+    if (theme) document.documentElement.setAttribute("data-theme", theme);
+    else document.documentElement.removeAttribute("data-theme");
+    try { if (theme) localStorage.setItem("hexis_theme", theme); else localStorage.removeItem("hexis_theme"); } catch (_e) { /* */ }
   }
 
-  async function reload(domain) {
-    // Run the per-domain fetches concurrently (the server handles parallel /api calls) — a single reload
-    // of all five was 5 sequential encrypted round-trips; in parallel it is ~1.
-    const domains = domain ? [domain] : Object.keys(DOMAIN_RENDER);
-    await Promise.all(domains.map(reloadDomain));
-    el("footText").textContent =
-      state.tasks.length + " tasks · " + state.notes.length + " notes · end-to-end encrypted";
-  }
-
-  async function loadAll() {
-    setStatus("Loading…", "");
-    try {
-      await reload();
-      setStatus("", "ok");
-    } catch (e) {
-      setStatus("Could not load. Make sure Hexis is connected on your phone, then refresh. (" + e.message + ")", "err");
-      throw e;
-    }
-  }
-
-  // ---- live connection (WebSocket) ---------------------------------------------------------------
-  // Replaces the long-poll: a persistent wss:// socket isolated from /api traffic, with app-level
-  // heartbeat, exponential backoff + jitter, online/offline + visibility handling, and a debounced
-  // "Reconnecting…" banner so a brief blip never flashes. All frames reuse the same AES-GCM envelope.
+  // ============================================================== live (WebSocket)
   const live = { ws: null, backoff: 0, reconnectTimer: null, hbTimer: null, pongTimer: null, bannerTimer: null };
-
-  function wsUrl() {
-    return (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/live";
-  }
-  async function sealFrame(obj) {
-    return sealText(JSON.stringify(obj));
-  }
-
+  function wsUrl() { return (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/live"; }
+  async function sealFrame(obj) { return sealText(JSON.stringify(obj)); }
   function startLive() {
-    stopLive(); // single-flight: never two sockets or two timers
+    stopLive();
     let sock;
-    try {
-      sock = new WebSocket(wsUrl());
-    } catch (_e) {
-      scheduleReconnect();
-      return;
-    }
+    try { sock = new WebSocket(wsUrl()); } catch (_e) { scheduleReconnect(); return; }
     live.ws = sock;
     sock.onopen = async () => {
-      live.backoff = 0;
-      clearBannerTimer();
-      setStatus("", "ok");
-      try { sock.send(await sealFrame({ t: "hello", nonce: nonce(), since: seen })); } catch (_e) { /* closed */ }
+      live.backoff = 0; clearBannerTimer(); setConn("ok");
+      try { sock.send(await sealFrame({ t: "hello", nonce: nonce(), since: seen })); } catch (_e) { /* */ }
       startHeartbeat();
     };
     sock.onmessage = async (ev) => {
       if (typeof ev.data !== "string") return;
-      let msg;
-      try { msg = JSON.parse(await openText(ev.data)); } catch (_e) { return; }
+      let msg; try { msg = JSON.parse(await openText(ev.data)); } catch (_e) { return; }
       if (msg.t === "pong") { clearPong(); return; }
       if (msg.t === "tick" && msg.versions) {
         const now = msg.versions;
-        const changed = Object.keys(now).filter((d) => (now[d] || 0) > (seen[d] || 0) && DOMAIN_RENDER[d]);
+        const changed = Object.keys(now).filter((d) => (now[d] || 0) > (seen[d] || 0) && DOMAINS.includes(d));
         seen = Object.assign({}, seen, now);
-        for (const d of changed) { try { await reloadDomain(d); } catch (_e) { /* transient */ } }
+        for (const d of changed) { try { await reloadDomain(d); } catch (_e) { /* */ } }
+        if (changed.length) render();
       }
     };
-    sock.onclose = () => { if (live.ws === sock) { stopHeartbeat(); live.ws = null; scheduleReconnect(); } };
-    sock.onerror = () => { try { sock.close(); } catch (_e) { /* noop */ } };
+    sock.onclose = () => { if (live.ws === sock) { stopHeartbeat(); live.ws = null; setConn("err"); scheduleReconnect(); } };
+    sock.onerror = () => { try { sock.close(); } catch (_e) { /* */ } };
   }
-
-  function stopLive() {
-    stopHeartbeat();
-    if (live.reconnectTimer) { clearTimeout(live.reconnectTimer); live.reconnectTimer = null; }
-    if (live.ws) { const s = live.ws; live.ws = null; try { s.onclose = null; s.close(); } catch (_e) { /* noop */ } }
-  }
-
+  function stopLive() { stopHeartbeat(); if (live.reconnectTimer) { clearTimeout(live.reconnectTimer); live.reconnectTimer = null; } if (live.ws) { const s = live.ws; live.ws = null; try { s.onclose = null; s.close(); } catch (_e) { /* */ } } }
   function scheduleReconnect() {
     if (live.reconnectTimer) return;
     showBannerSoon();
-    const base = 1000, cap = 10000;
-    const delay = Math.floor(Math.random() * Math.min(cap, base * Math.pow(2, live.backoff)));
+    const delay = Math.floor(Math.random() * Math.min(10000, 1000 * Math.pow(2, live.backoff)));
     live.backoff = Math.min(live.backoff + 1, 6);
     live.reconnectTimer = setTimeout(() => { live.reconnectTimer = null; startLive(); }, delay);
   }
-
   function startHeartbeat() {
     stopHeartbeat();
     live.hbTimer = setInterval(async () => {
       if (!live.ws || live.ws.readyState !== WebSocket.OPEN) return;
       try { live.ws.send(await sealFrame({ t: "ping", nonce: nonce() })); } catch (_e) { return; }
-      // If no pong within 10s the socket is silently dead (Wi-Fi drop) → force reconnect.
-      if (!live.pongTimer) {
-        live.pongTimer = setTimeout(() => { live.pongTimer = null; try { live.ws && live.ws.close(); } catch (_e) { /* noop */ } }, 10000);
-      }
+      if (!live.pongTimer) live.pongTimer = setTimeout(() => { live.pongTimer = null; try { live.ws && live.ws.close(); } catch (_e) { /* */ } }, 10000);
     }, 25000);
   }
   function stopHeartbeat() { if (live.hbTimer) { clearInterval(live.hbTimer); live.hbTimer = null; } clearPong(); }
   function clearPong() { if (live.pongTimer) { clearTimeout(live.pongTimer); live.pongTimer = null; } }
-
-  function showBannerSoon() {
-    if (live.bannerTimer) return;
-    live.bannerTimer = setTimeout(() => { live.bannerTimer = null; setStatus("Reconnecting…", "err"); }, 2000);
-  }
+  function showBannerSoon() { if (live.bannerTimer) return; live.bannerTimer = setTimeout(() => { live.bannerTimer = null; setConn("err"); }, 2000); }
   function clearBannerTimer() { if (live.bannerTimer) { clearTimeout(live.bannerTimer); live.bannerTimer = null; } }
-
-  function reconnectNow() {
-    live.backoff = 0;
-    if (live.reconnectTimer) { clearTimeout(live.reconnectTimer); live.reconnectTimer = null; }
-    if (!live.ws || live.ws.readyState !== WebSocket.OPEN) startLive();
-  }
-
+  function reconnectNow() { live.backoff = 0; if (live.reconnectTimer) { clearTimeout(live.reconnectTimer); live.reconnectTimer = null; } if (!live.ws || live.ws.readyState !== WebSocket.OPEN) startLive(); }
   function wireLiveEvents() {
     window.addEventListener("online", reconnectNow);
-    window.addEventListener("offline", () => { setStatus("Offline — no network", "err"); stopLive(); });
+    window.addEventListener("offline", () => { setConn("err"); stopLive(); });
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reconnectNow(); });
   }
 
+  // ============================================================== boot
   async function boot() {
-    for (const t of TABS) el(t.tab).addEventListener("click", () => selectTab(t.key));
-    el("refreshBtn").addEventListener("click", () => reload().catch((e) => alert(e.message)));
-    wireViewEvents();
+    loadUi();
+    try { const t = localStorage.getItem("hexis_theme"); if (t) { theme = t; document.documentElement.setAttribute("data-theme", t); } } catch (_e) { /* */ }
+    wireGlobal();
+    wireSidebar();
+    wireLiveEvents();
 
-    // The key arrives in the URL fragment (never sent to the server). Keep it in sessionStorage so an
-    // in-tab reload still works, but strip it from the visible URL/history. Closing the tab clears it.
     const m = /[#&]k=([A-Za-z0-9_-]+)/.exec(location.hash || "");
     let keyB64 = m && m[1];
-    if (keyB64) {
-      try { sessionStorage.setItem("hexis_k", keyB64); } catch (_e) { /* private mode */ }
-    } else {
-      try { keyB64 = sessionStorage.getItem("hexis_k"); } catch (_e) { keyB64 = null; }
-    }
-    if (!keyB64) {
-      setStatus("No pairing key. Open the exact link (or scan the QR) shown in the Hexis Web app.", "err");
-      return;
-    }
-    try {
-      aeadKey = await deriveKey(b64urlDecode(keyB64));
-    } catch (_e) {
-      setStatus("Pairing key looks malformed. Re-scan the QR from the Hexis Web app.", "err");
-      return;
-    }
-    if (m) {
-      try {
-        history.replaceState(null, "", location.pathname + location.search);
-      } catch (_e) {
-        /* non-fatal */
-      }
-    }
+    if (keyB64) { try { sessionStorage.setItem("hexis_k", keyB64); } catch (_e) { /* */ } }
+    else { try { keyB64 = sessionStorage.getItem("hexis_k"); } catch (_e) { keyB64 = null; } }
+    if (!keyB64) { setStatus("No pairing key. Open the exact link (or scan the QR) shown in the Hexis Web app.", "err"); return; }
+    try { aeadKey = await deriveKey(b64urlDecode(keyB64)); }
+    catch (_e) { setStatus("Pairing key looks malformed. Re-scan the QR from the Hexis Web app.", "err"); return; }
+    if (m) { try { history.replaceState(null, "", location.pathname + location.search); } catch (_e) { /* */ } }
 
-    try {
-      readOnly = (await hello()).readOnly === true;
-    } catch (_e) {
-      readOnly = false; // non-fatal: default to full UI; the server still enforces access
-    }
-
-    wireLiveEvents();
-    try {
-      await loadAll();
-    } catch (_e) {
-      /* status already shown; user can hit refresh */
-    }
-    startLive(); // open the live channel regardless, so it recovers even if the first load failed
+    try { readOnly = (await hello()).readOnly === true; } catch (_e) { readOnly = false; }
+    render(); // paint the shell immediately
+    try { await loadAll(); render(); } catch (_e) { /* status shown */ }
+    startLive();
   }
-
   window.addEventListener("DOMContentLoaded", boot);
 })();

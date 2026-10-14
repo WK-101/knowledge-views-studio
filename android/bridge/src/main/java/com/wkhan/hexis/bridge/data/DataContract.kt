@@ -38,6 +38,9 @@ object DataApi {
     const val OP_LIST = "list"
     const val OP_GET = "get"
 
+    /** List the task lists (names) for the sidebar (domain `tasks`, no params) → [ListDto][]. */
+    const val OP_LISTS = "lists"
+
     /** List a note's attachment metadata (params `{ "id": noteId }`) → [AttachmentDto][]. */
     const val OP_ATTACHMENTS = "attachments"
 

@@ -36,6 +36,16 @@ data class NoteDto(
     val updatedAt: Long = 0L,
 )
 
+/** A task list (for the web sidebar). The special Inbox list has a fixed id. */
+@Serializable
+data class ListDto(
+    val id: String,
+    val name: String,
+    val emoji: String? = null,
+    val colorArgb: Long? = null,
+    val count: Int = 0,
+)
+
 /** A calendar event, projected for display. [calendarName] is resolved from the owning calendar. */
 @Serializable
 data class EventDto(
