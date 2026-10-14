@@ -161,6 +161,7 @@ class DataCapabilityHandler(
         DataApi.DOMAIN_CALENDAR -> BridgeScopes.DATA_CALENDAR_READ
         DataApi.DOMAIN_TIME -> BridgeScopes.DATA_TIME_READ
         DataApi.DOMAIN_HABITS -> BridgeScopes.DATA_HABITS_READ
+        DataApi.DOMAIN_SETTINGS -> BridgeScopes.DATA_SETTINGS_READ
         else -> null
     }
 
@@ -181,6 +182,7 @@ class DataCapabilityHandler(
             DataApi.DOMAIN_CALENDAR,
             DataApi.DOMAIN_TIME,
             DataApi.DOMAIN_HABITS,
+            DataApi.DOMAIN_SETTINGS,
         )
     }
 }

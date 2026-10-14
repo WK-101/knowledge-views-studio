@@ -38,8 +38,13 @@ object BridgeScopes {
     const val DATA_HABITS_READ = "data.habits.read"
     const val DATA_HABITS_WRITE = "data.habits.write"
 
+    /** Read-only: the display-relevant subset of the core's settings, so the web mirrors the phone's config. */
+    const val DATA_SETTINGS_READ = "data.settings.read"
+
     /** All read scopes — convenience for a read-only grant. */
-    val DATA_ALL_READ = setOf(DATA_TASKS_READ, DATA_NOTES_READ, DATA_CALENDAR_READ, DATA_TIME_READ, DATA_HABITS_READ)
+    val DATA_ALL_READ = setOf(
+        DATA_TASKS_READ, DATA_NOTES_READ, DATA_CALENDAR_READ, DATA_TIME_READ, DATA_HABITS_READ, DATA_SETTINGS_READ,
+    )
 
     /** Every data scope — convenience for a full grant. */
     val DATA_ALL = DATA_ALL_READ + setOf(

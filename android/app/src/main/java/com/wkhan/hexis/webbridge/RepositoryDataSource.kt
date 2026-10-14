@@ -5,24 +5,35 @@ import com.wkhan.hexis.bridge.BridgeCodec
 import com.wkhan.hexis.bridge.data.AttachmentData
 import com.wkhan.hexis.bridge.data.AttachmentDto
 import com.wkhan.hexis.bridge.data.CalendarDto
+import com.wkhan.hexis.bridge.data.ChecklistItemDto
+import com.wkhan.hexis.bridge.data.ContextDto
 import com.wkhan.hexis.bridge.data.DataApi
 import com.wkhan.hexis.bridge.data.DataMutation
 import com.wkhan.hexis.bridge.data.DataPage
 import com.wkhan.hexis.bridge.data.DataQuery
 import com.wkhan.hexis.bridge.data.DataResult
+import com.wkhan.hexis.bridge.data.DependencyDto
 import com.wkhan.hexis.bridge.data.EventDto
+import com.wkhan.hexis.bridge.data.FlagDto
+import com.wkhan.hexis.bridge.data.FolderDto
 import com.wkhan.hexis.bridge.data.HabitDayDto
 import com.wkhan.hexis.bridge.data.HabitDto
 import com.wkhan.hexis.bridge.data.ListDto
 import com.wkhan.hexis.bridge.data.NoteDto
+import com.wkhan.hexis.bridge.data.ReminderDto
+import com.wkhan.hexis.bridge.data.SettingsDto
+import com.wkhan.hexis.bridge.data.TagDto
 import com.wkhan.hexis.bridge.data.TaskDto
 import com.wkhan.hexis.bridge.data.TimeActivityDto
 import com.wkhan.hexis.bridge.data.TimeEntryDto
+import kotlinx.coroutines.flow.first
 import com.wkhan.hexis.data.AppRepository
+import com.wkhan.hexis.data.entity.DependencyEntity
 import com.wkhan.hexis.data.entity.EventCalendarEntity
 import com.wkhan.hexis.data.entity.EventEntity
 import com.wkhan.hexis.data.entity.ListEntity
 import com.wkhan.hexis.data.entity.NoteEntity
+import com.wkhan.hexis.data.entity.ReminderEntity
 import com.wkhan.hexis.data.entity.TaskEntity
 import com.wkhan.hexis.domain.AppClock
 import com.wkhan.hexis.domain.calendar.CalendarEngine
@@ -56,6 +67,7 @@ class RepositoryDataSource(
         DataApi.DOMAIN_CALENDAR -> queryCalendar(query)
         DataApi.DOMAIN_TIME -> queryTime(query)
         DataApi.DOMAIN_HABITS -> queryHabits(query)
+        DataApi.DOMAIN_SETTINGS -> onePage(settingsDto())
         else -> throw UnsupportedDomainException(query.domain)
     }
 
@@ -79,17 +91,121 @@ class RepositoryDataSource(
     }
 
     private suspend fun queryTasks(query: DataQuery): DataPage = when (query.op) {
-        DataApi.OP_LIST -> listPage(allTasks(), query) { it.toDto() }
-        DataApi.OP_GET -> onePage(idParam(query)?.let { repo.getTask(it)?.toDto() })
+        DataApi.OP_LIST -> {
+            val tagsByTask = taskTagMap()
+            val ctxByTask = taskContextMap()
+            listPage(allTasks(), query) { it.toDto(tagsByTask[it.id].orEmpty(), ctxByTask[it.id].orEmpty()) }
+        }
+        DataApi.OP_GET -> {
+            val t = idParam(query)?.let { repo.getTask(it) }
+            onePage(t?.toDto(taskTagMap()[t.id].orEmpty(), taskContextMap()[t.id].orEmpty()))
+        }
         DataApi.OP_LISTS -> listPage(taskListDtos(), query) { it }
+        DataApi.OP_FOLDERS -> listPage(folderDtos(), query) { it }
+        DataApi.OP_TAGS -> listPage(tagDtos(), query) { it }
+        DataApi.OP_CONTEXTS -> listPage(contextDtos(), query) { it }
+        DataApi.OP_FLAGS -> listPage(flagDtos(), query) { it }
+        DataApi.OP_DEPENDENCIES -> listPage(dependencyDtos(), query) { it }
+        DataApi.OP_REMINDERS -> listPage(reminderDtos(idParam(query)), query) { it }
+        DataApi.OP_CHECKLIST -> listPage(checklistDtos(idParam(query)), query) { it }
         else -> throw UnsupportedDomainException("tasks.${query.op}")
     }
 
-    /** The active-workspace task lists (names) for the sidebar, Inbox first, with open-task counts. */
+    // ---- task relation maps (one-shot from the reactive cross-ref flows) ----
+    private suspend fun taskTagMap(): Map<String, List<String>> =
+        repo.taskTagRefs.first().groupBy({ it.taskId }, { it.tagId })
+    private suspend fun taskContextMap(): Map<String, List<String>> =
+        repo.taskContextRefs.first().groupBy({ it.taskId }, { it.contextId })
+
+    // ---- task sidebar/editor container + relation projections (active-workspace scoped) ----
+    private suspend fun folderDtos(): List<FolderDto> {
+        val ws = repo.activeWs()
+        return repo.allFolders.first()
+            .filter { it.workspaceId == ws && !it.archived && !it.trashed }
+            .sortedBy { it.sortOrder }
+            .map { FolderDto(it.id, it.name, it.parentId, it.icon, it.colorArgb, it.sortOrder, it.archived) }
+    }
+    private suspend fun tagDtos(): List<TagDto> {
+        val ws = repo.activeWs()
+        return repo.getTagsOnce().filter { it.workspaceId == ws }.sortedBy { it.sortOrder }
+            .map { TagDto(it.id, it.name, it.colorArgb, it.parentId, it.sortOrder) }
+    }
+    private suspend fun contextDtos(): List<ContextDto> {
+        val ws = repo.activeWs()
+        return repo.getContextsOnce().filter { it.workspaceId == ws }.sortedBy { it.sortOrder }
+            .map { ContextDto(it.id, it.name, it.icon, it.colorArgb, it.parentId, it.sortOrder) }
+    }
+    private suspend fun flagDtos(): List<FlagDto> {
+        val ws = repo.activeWs()
+        return repo.getFlagsOnce().filter { it.workspaceId == ws }.sortedBy { it.sortOrder }
+            .map { FlagDto(it.id, it.name, it.colorArgb, it.icon, it.sortOrder) }
+    }
+    private suspend fun dependencyDtos(): List<DependencyDto> =
+        repo.allDependencies.first().map { DependencyDto(it.taskId, it.dependsOnTaskId, it.mode, it.delayDays) }
+    private suspend fun reminderDtos(taskId: String?): List<ReminderDto> {
+        if (taskId.isNullOrBlank() || !isReadableTask(taskId)) return emptyList()
+        return repo.remindersForTask(taskId).map {
+            ReminderDto(it.id, it.taskId, it.type, it.atTime, it.offsetMin, it.repeatEveryMin, it.repeatCount, it.placeName, it.onEnter, it.annoying, it.escalate)
+        }
+    }
+    private suspend fun checklistDtos(taskId: String?): List<ChecklistItemDto> {
+        if (taskId.isNullOrBlank() || !isReadableTask(taskId)) return emptyList()
+        return repo.checklistFor(taskId).map { ChecklistItemDto(it.id, it.taskId, it.text, it.checked, it.sortOrder) }
+    }
+    private suspend fun isReadableTask(id: String): Boolean = repo.wsTasksOnce().any { it.id == id }
+
+    /** Read-only projection of the display-relevant settings so the web mirrors the phone's configuration. */
+    private suspend fun settingsDto(): SettingsDto {
+        val s = repo.settingsSnapshot()
+        return SettingsDto(
+            activeWorkspaceId = s.activeWorkspaceId,
+            weekStart = s.weekStart,
+            timeFormat = s.timeFormat.name,
+            timeZone = s.timeZone,
+            dayStartHour = s.dayStartHour,
+            dayStartMinute = s.dayStartMinute,
+            density = s.density.name,
+            advancedPriority = s.advancedPriority,
+            smartListVis = s.smartListVis.entries.associate { it.key.name to it.value.name },
+            smartListNames = s.smartListNames,
+            smartOrder = s.smartOrder,
+            editorFieldTiers = s.editorFieldTiers,
+            editorFieldOrder = s.editorFieldOrder,
+            editorFieldFolded = s.editorFieldFolded.toList(),
+            matrixImportanceThreshold = s.matrixImportanceThreshold,
+            matrixUrgencyThreshold = s.matrixUrgencyThreshold,
+            matrixShowCompleted = s.matrixShowCompleted,
+            matrixHideEmpty = s.matrixHideEmpty,
+            matrixNames = s.matrixNames,
+            matrixListFilter = s.matrixListFilter.toList(),
+            matrixFolderFilter = s.matrixFolderFilter.toList(),
+            matrixMaxDuration = s.matrixMaxDuration,
+            matrixOverdueOnly = s.matrixOverdueOnly,
+            matrixDateFilter = s.matrixDateFilter,
+            matrixSort = s.matrixSort,
+            calendarDefaultMode = s.calendarDefaultMode,
+            calendarRememberLast = s.calendarRememberLast,
+            calendarShowCompleted = s.calendarShowCompleted,
+            calendarListFilter = s.calendarListFilter.toList(),
+            notesNotebookMode = s.notesNotebookMode,
+            noteDefaultView = s.noteDefaultView,
+            notesViewMode = s.notesViewMode,
+            notesSort = s.notesSort,
+            habitSort = s.habitSort,
+            habitGroupByCategory = s.habitGroupByCategory,
+            strengthMeter = s.strengthMeter,
+            calmMode = s.calmMode,
+            forgivingStreaks = s.forgivingStreaks,
+            hideStreaks = s.hideStreaks,
+            timeGridColumns = s.timeGridColumns,
+        )
+    }
+
+    /** The active-workspace task lists for the sidebar, Inbox first, with open-task counts + tree info. */
     private suspend fun taskListDtos(): List<ListDto> {
         val ws = repo.activeWs()
         repo.ensureInbox()
-        val openByList = allTasks().filter { !it.completed }.groupingBy { it.listId }.eachCount()
+        val openByList = allTasks().filter { isOpenTask(it) }.groupingBy { it.listId }.eachCount()
         return repo.allListsOnce()
             .filter { (it.workspaceId == ws || it.id == ListEntity.INBOX_ID) && !it.archived && !it.trashed }
             .sortedWith(compareByDescending<ListEntity> { it.id == ListEntity.INBOX_ID }.thenBy { it.sortOrder })
@@ -100,9 +216,17 @@ class RepositoryDataSource(
                     emoji = it.emoji,
                     colorArgb = it.colorArgb,
                     count = openByList[it.id] ?: 0,
+                    folderId = it.folderId,
+                    parentListId = it.parentListId,
+                    sortOrder = it.sortOrder,
+                    viewMode = it.viewMode,
+                    archived = it.archived,
                 )
             }
     }
+
+    /** Mirrors the core's `isOpen`: a task that counts toward active/smart views. */
+    private fun isOpenTask(t: TaskEntity) = !t.trashed && !t.completed && !t.abandoned && !t.someday
 
     private suspend fun queryNotes(query: DataQuery): DataPage = when (query.op) {
         DataApi.OP_LIST -> listPage(allNotes(), query) { it.toDto() }
@@ -184,33 +308,73 @@ class RepositoryDataSource(
         // calendar/time/habits are fine here: a tick only says "this domain changed", never carries data,
         // and the handler filters ticks to the domains the caller may read.
         val tasks = repo.observeTasksByWorkspace(ws).drop(1).map { DataApi.DOMAIN_TASKS }
+        // Containers/relations also tick the tasks domain so the sidebar (lists/folders/tags/contexts/flags)
+        // and dependency-derived views refresh when they change on the phone.
+        val containers = merge(
+            repo.allFolders.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.allLists.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.allTags.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.allContexts.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.allFlags.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.allDependencies.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.taskTagRefs.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.taskContextRefs.drop(1).map { DataApi.DOMAIN_TASKS },
+            repo.allChecklist.drop(1).map { DataApi.DOMAIN_TASKS },
+        )
         val notes = repo.observeNotesByWorkspace(ws, trashed = false).drop(1).map { DataApi.DOMAIN_NOTES }
         val calendar = repo.allEvents.drop(1).map { DataApi.DOMAIN_CALENDAR }
         val time = repo.allTimeEntries.drop(1).map { DataApi.DOMAIN_TIME }
         val habits = repo.allHabits.drop(1).map { DataApi.DOMAIN_HABITS }
         val checkins = repo.allCheckins.drop(1).map { DataApi.DOMAIN_HABITS }
-        emitAll(merge(tasks, notes, calendar, time, habits, checkins))
+        val settings = repo.allSettings.drop(1).map { DataApi.DOMAIN_SETTINGS }
+        emitAll(merge(tasks, containers, notes, calendar, time, habits, checkins, settings))
     }
 
     // ---- writes -------------------------------------------------------------------------------------
 
-    @Suppress("ReturnCount") // guard-clause early returns read clearest here
+    @Suppress("ReturnCount", "LongMethod", "CyclomaticComplexMethod") // a per-op write facade
     private suspend fun mutateTask(mutation: DataMutation): DataResult {
+        val p = mutation.payloadJson
         return when (mutation.op) {
-            DataApi.OP_UPSERT -> upsertTask(decode<TaskDto>(mutation.payloadJson) ?: return bad("invalid task"))
+            DataApi.OP_UPSERT -> upsertTask(decode<TaskDto>(p) ?: return bad("invalid task"))
             DataApi.OP_COMPLETE -> {
-                val p = decode<CompleteParam>(mutation.payloadJson) ?: return bad("invalid complete")
-                if (repo.getTask(p.id) == null) return bad("not_found")
-                repo.setCompletedById(p.id, p.completed)
-                ok(p.id)
+                val c = decode<CompleteParam>(p) ?: return bad("invalid complete")
+                if (repo.getTask(c.id) == null) return bad("not_found"); repo.setCompletedById(c.id, c.completed); ok(c.id)
             }
             DataApi.OP_DELETE -> {
-                val id = decode<IdParam>(mutation.payloadJson)?.id ?: return bad("invalid id")
-                if (repo.getTask(id) == null) return bad("not_found")
-                repo.setTrashed(id, trashed = true, workspaceId = repo.activeWs()) // reversible: moved to Trash
-                ok(id)
+                val id = decode<IdParam>(p)?.id ?: return bad("invalid id")
+                if (repo.getTask(id) == null) return bad("not_found"); repo.setTrashed(id, trashed = true, workspaceId = repo.activeWs()); ok(id)
             }
-            DataApi.OP_BULK -> bulkTasks(decode<BulkOp>(mutation.payloadJson) ?: return bad("invalid bulk"))
+            DataApi.OP_RESTORE -> {
+                val id = decode<IdParam>(p)?.id ?: return bad("invalid id")
+                if (repo.getTask(id) == null) return bad("not_found"); repo.setTrashed(id, trashed = false, workspaceId = repo.activeWs()); ok(id)
+            }
+            DataApi.OP_STAR -> { val s = decode<StarParam>(p) ?: return bad("invalid"); val t = repo.getTask(s.id) ?: return bad("not_found"); repo.saveTask(t.copy(star = s.star)); ok(s.id) }
+            DataApi.OP_ABANDON -> { val s = decode<AbandonParam>(p) ?: return bad("invalid"); val t = repo.getTask(s.id) ?: return bad("not_found"); repo.saveTask(t.copy(abandoned = s.abandoned)); ok(s.id) }
+            DataApi.OP_SET_PRIORITY -> { val s = decode<PriorityParam>(p) ?: return bad("invalid"); val t = repo.getTask(s.id) ?: return bad("not_found"); repo.saveTask(t.copy(importance = s.importance.coerceIn(1, 5), urgency = s.urgency.coerceIn(1, 5))); ok(s.id) }
+            DataApi.OP_FLAG -> { val s = decode<FlagParam>(p) ?: return bad("invalid"); val t = repo.getTask(s.id) ?: return bad("not_found"); repo.setTaskFlag(t, s.flagId); ok(s.id) }
+            DataApi.OP_MOVE -> { val s = decode<MoveParam>(p) ?: return bad("invalid"); val t = repo.getTask(s.id) ?: return bad("not_found"); repo.saveTask(t.copy(listId = s.listId ?: t.listId, folderId = s.folderId)); ok(s.id) }
+            DataApi.OP_SET_TAGS -> { val s = decode<TagsParam>(p) ?: return bad("invalid"); if (repo.getTask(s.id) == null) return bad("not_found"); repo.setTaskTags(s.id, s.tagIds); ok(s.id) }
+            DataApi.OP_SET_CONTEXTS -> { val s = decode<ContextsParam>(p) ?: return bad("invalid"); if (repo.getTask(s.id) == null) return bad("not_found"); repo.setTaskContexts(s.id, s.contextIds); ok(s.id) }
+            DataApi.OP_SUBTASK -> {
+                val s = decode<SubtaskParam>(p) ?: return bad("invalid"); val parent = repo.getTask(s.id) ?: return bad("not_found")
+                if (s.title.isBlank()) return bad("empty_title"); ok(repo.createTask(listId = parent.listId, title = s.title.trim(), parentId = parent.id))
+            }
+            DataApi.OP_CHECKLIST_ADD -> { val s = decode<ChecklistAddParam>(p) ?: return bad("invalid"); if (repo.getTask(s.id) == null || s.text.isBlank()) return bad("invalid"); repo.addChecklistItem(s.id, s.text.trim()); ok(s.id) }
+            DataApi.OP_CHECKLIST_SET -> {
+                val s = decode<ChecklistSetParam>(p) ?: return bad("invalid"); val item = repo.checklistFor(s.taskId).firstOrNull { it.id == s.id } ?: return bad("not_found")
+                repo.saveChecklistItem(item.copy(checked = s.checked ?: item.checked, text = s.text ?: item.text)); ok(s.id)
+            }
+            DataApi.OP_CHECKLIST_DELETE -> { val id = decode<IdParam>(p)?.id ?: return bad("invalid id"); repo.deleteChecklistItem(id); ok(id) }
+            DataApi.OP_REMINDER_ADD -> {
+                val r = decode<ReminderDto>(p) ?: return bad("invalid"); if (!isReadableTask(r.taskId)) return bad("not_found")
+                val id = r.id.ifBlank { java.util.UUID.randomUUID().toString() }
+                repo.upsertReminder(ReminderEntity(id = id, taskId = r.taskId, type = r.type, atTime = r.atTime, offsetMin = r.offsetMin, repeatEveryMin = r.repeatEveryMin, repeatCount = r.repeatCount, placeName = r.placeName, onEnter = r.onEnter, annoying = r.annoying, escalate = r.escalate)); ok(id)
+            }
+            DataApi.OP_REMINDER_DELETE -> { val id = decode<IdParam>(p)?.id ?: return bad("invalid id"); repo.deleteReminder(id); ok(id) }
+            DataApi.OP_DEP_ADD -> { val d = decode<DepParam>(p) ?: return bad("invalid"); if (!isReadableTask(d.taskId) || !isReadableTask(d.dependsOnTaskId)) return bad("not_found"); repo.addDependency(d.taskId, d.dependsOnTaskId, d.mode, d.delayDays); ok(d.taskId) }
+            DataApi.OP_DEP_REMOVE -> { val d = decode<DepParam>(p) ?: return bad("invalid"); repo.removeDependency(DependencyEntity(d.taskId, d.dependsOnTaskId)); ok(d.taskId) }
+            DataApi.OP_BULK -> bulkTasks(decode<BulkOp>(p) ?: return bad("invalid bulk"))
             else -> throw UnsupportedDomainException("tasks.${mutation.op}")
         }
     }
@@ -233,19 +397,27 @@ class RepositoryDataSource(
         return DataResult(ok = true, payloadJson = BridgeCodec.encodeString(CountResult(applied)))
     }
 
+    // The editor's authoritative whole-task save: the web sends the FULL current DTO, so every editable field
+    // is applied. (Field-scoped ops — star/flag/move/setPriority — are for inline edits that must not touch
+    // other fields.) A recurring master keeps its recurrence rule unless the DTO changes it.
     @Suppress("ReturnCount")
     private suspend fun upsertTask(dto: TaskDto): DataResult {
         val existing = dto.id.takeIf { it.isNotBlank() }?.let { repo.getTask(it) }
         if (existing != null) {
+            val flagColor = dto.flagId?.let { fid -> repo.getFlagsOnce().firstOrNull { it.id == fid }?.colorArgb }
             repo.saveTask(
                 existing.copy(
-                    title = dto.title.ifBlank { existing.title },
-                    note = dto.note ?: existing.note,
-                    dueDate = dto.dueDate,
-                    startDate = dto.startDate,
-                    importance = dto.importance,
-                    urgency = dto.urgency,
-                    star = dto.star,
+                    title = dto.title.ifBlank { existing.title }, note = dto.note ?: "",
+                    listId = dto.listId ?: existing.listId, folderId = dto.folderId,
+                    dueDate = dto.dueDate, startDate = dto.startDate, deadlineDate = dto.deadlineDate, isAllDay = dto.isAllDay,
+                    importance = dto.importance.coerceIn(1, 5), urgency = dto.urgency.coerceIn(1, 5), energy = dto.energy,
+                    durationMin = dto.durationMin, estimateMin = dto.estimateMin, estimateMax = dto.estimateMax, leadTimeMin = dto.leadTimeMin,
+                    star = dto.star, flagId = dto.flagId, flagColorArgb = flagColor, pinned = dto.pinned, someday = dto.someday,
+                    isGoal = dto.isGoal, isProject = dto.isProject, progressPct = dto.progressPct, completeInOrder = dto.completeInOrder,
+                    rrule = dto.rrule, recurrenceMode = dto.recurrenceMode, waitingForWho = dto.waitingForWho,
+                    defaultActivityId = dto.defaultActivityId, reviewEveryDays = dto.reviewEveryDays, colorArgb = dto.colorArgb,
+                    winFlag = dto.winFlag, mood = dto.mood, outcomeNote = dto.outcomeNote, learnedNote = dto.learnedNote,
+                    praiseQuote = dto.praiseQuote, whyText = dto.whyText, rewardText = dto.rewardText,
                 ),
             )
             return ok(existing.id)
@@ -253,17 +425,17 @@ class RepositoryDataSource(
         if (dto.title.isBlank()) return bad("empty_title")
         repo.ensureInbox()
         val id = repo.createTask(
-            listId = dto.listId ?: ListEntity.INBOX_ID,
-            title = dto.title.trim(),
-            parentId = dto.parentId,
-            importance = dto.importance,
-            urgency = dto.urgency,
-            dueDate = dto.dueDate,
-            startDate = dto.startDate,
+            listId = dto.listId ?: ListEntity.INBOX_ID, title = dto.title.trim(), parentId = dto.parentId,
+            importance = dto.importance, urgency = dto.urgency, dueDate = dto.dueDate, startDate = dto.startDate, folderId = dto.folderId,
         )
-        // Apply the fields createTask doesn't take (star / note) in one follow-up save.
-        if (dto.star || !dto.note.isNullOrBlank()) {
-            repo.getTask(id)?.let { repo.saveTask(it.copy(star = dto.star, note = dto.note ?: it.note)) }
+        // Apply the fields createTask doesn't take.
+        repo.getTask(id)?.let { t ->
+            repo.saveTask(
+                t.copy(
+                    note = dto.note ?: "", star = dto.star, flagId = dto.flagId, someday = dto.someday, isAllDay = dto.isAllDay,
+                    deadlineDate = dto.deadlineDate, energy = dto.energy, estimateMin = dto.estimateMin, rrule = dto.rrule, isGoal = dto.isGoal,
+                ),
+            )
         }
         return ok(id)
     }
@@ -433,13 +605,10 @@ class RepositoryDataSource(
 
     // ---- reads --------------------------------------------------------------------------------------
 
-    private suspend fun allTasks(): List<TaskEntity> {
-        val ws = repo.activeWs()
-        return repo.allTasksOnce().asSequence()
-            .filter { it.workspaceId == ws && !it.trashed }
-            .sortedWith(compareBy({ it.completed }, { it.sortOrder }))
-            .toList()
-    }
+    // The full active-workspace task set (inbox by own workspace, others by their list/folder's workspace —
+    // the exact SQL rule the mobile app uses), INCLUDING completed/abandoned/someday/trashed so the web can
+    // compute every smart list (All/Today/…/Completed/Won't Do/Trash) itself. Ordered by sortOrder.
+    private suspend fun allTasks(): List<TaskEntity> = repo.wsTasksOnce().sortedBy { it.sortOrder }
 
     private suspend fun allNotes(): List<NoteEntity> {
         val ws = repo.activeWs()
@@ -514,7 +683,12 @@ class RepositoryDataSource(
         repo.wsTimeActivitiesOnce()
             .filter { !it.archived }
             .sortedBy { it.sortOrder }
-            .map { TimeActivityDto(id = it.id, name = it.name, emoji = it.emoji, colorArgb = it.colorArgb, goalMinutesPerDay = it.goalMinutesPerDay) }
+            .map {
+                TimeActivityDto(
+                    id = it.id, name = it.name, emoji = it.emoji, colorArgb = it.colorArgb,
+                    goalMinutesPerDay = it.goalMinutesPerDay, goalDays = it.goalDays, sortOrder = it.sortOrder,
+                )
+            }
 
     /** Per-habit per-day check-in cells over the last N days (default 84 ≈ 12 weeks) for the heatmap. */
     private suspend fun habitHistoryDtos(query: DataQuery): List<HabitDayDto> {
@@ -522,10 +696,17 @@ class RepositoryDataSource(
             .coerceIn(1, MAX_HISTORY_DAYS)
         val today = java.time.LocalDate.now().toEpochDay()
         val from = today - days + 1
-        val habitIds = repo.wsHabitsOnce().map { it.id }.toSet()
+        val targetById = repo.wsHabitsOnce().associate { it.id to it.targetPerDay.coerceAtLeast(1) }
         return repo.getHabitCheckinsOnce()
-            .filter { it.habitId in habitIds && it.epochDay in from..today }
-            .map { HabitDayDto(habitId = it.habitId, epochDay = it.epochDay, count = it.count, done = it.status == "done") }
+            .filter { it.habitId in targetById && it.epochDay in from..today }
+            .map {
+                val target = targetById[it.habitId] ?: 1
+                HabitDayDto(
+                    habitId = it.habitId, epochDay = it.epochDay, count = it.count,
+                    done = it.status == "done", target = target,
+                    goalMet = it.status == "done" && it.count >= target, skip = it.status == "skip",
+                )
+            }
     }
 
     private suspend fun allHabitDtos(): List<HabitDto> {
@@ -543,7 +724,16 @@ class RepositoryDataSource(
                     targetPerDay = h.targetPerDay,
                     unit = h.unit,
                     habitType = h.habitType,
+                    targetComparison = h.targetComparison,
                     category = h.category,
+                    scheduleDays = h.scheduleDays,
+                    reminderTimes = h.reminderTimes,
+                    freqType = h.freqType,
+                    freqParam = h.freqParam,
+                    clickIncrement = h.clickIncrement,
+                    extraTarget = h.extraTarget,
+                    startDate = h.startDate,
+                    sortOrder = h.sortOrder,
                     paused = h.paused,
                     todayCount = c?.count ?: 0,
                     doneToday = c?.status == "done",
@@ -585,6 +775,39 @@ private data class IdParam(val id: String)
 private data class ActivityParam(val activityId: String)
 
 @Serializable
+private data class StarParam(val id: String, val star: Boolean = true)
+
+@Serializable
+private data class AbandonParam(val id: String, val abandoned: Boolean = true)
+
+@Serializable
+private data class PriorityParam(val id: String, val importance: Int = 3, val urgency: Int = 3)
+
+@Serializable
+private data class FlagParam(val id: String, val flagId: String? = null)
+
+@Serializable
+private data class MoveParam(val id: String, val listId: String? = null, val folderId: String? = null)
+
+@Serializable
+private data class TagsParam(val id: String, val tagIds: List<String> = emptyList())
+
+@Serializable
+private data class ContextsParam(val id: String, val contextIds: List<String> = emptyList())
+
+@Serializable
+private data class SubtaskParam(val id: String, val title: String)
+
+@Serializable
+private data class ChecklistAddParam(val id: String, val text: String)
+
+@Serializable
+private data class ChecklistSetParam(val id: String, val taskId: String, val checked: Boolean? = null, val text: String? = null)
+
+@Serializable
+private data class DepParam(val taskId: String, val dependsOnTaskId: String, val mode: String = "AND", val delayDays: Int = 0)
+
+@Serializable
 private data class CompleteParam(val id: String, val completed: Boolean = true)
 
 /** A bulk task op: an [action] (complete / delete / star) applied to many [ids]; [value] is the on/off flag. */
@@ -596,19 +819,55 @@ private data class CountResult(val count: Int)
 
 // ---- entity → DTO projections (the only fields that leave the core) ----------------------------------
 
-private fun TaskEntity.toDto() = TaskDto(
+private fun TaskEntity.toDto(tagIds: List<String> = emptyList(), contextIds: List<String> = emptyList()) = TaskDto(
     id = id,
     title = title,
     listId = listId,
+    folderId = folderId,
     parentId = parentId,
     completed = completed,
+    completedAt = completedAt,
+    abandoned = abandoned,
+    someday = someday,
     dueDate = dueDate,
     startDate = startDate,
+    deadlineDate = deadlineDate,
+    isAllDay = isAllDay,
     importance = importance,
     urgency = urgency,
+    energy = energy,
+    durationMin = durationMin,
+    estimateMin = estimateMin,
+    estimateMax = estimateMax,
+    leadTimeMin = leadTimeMin,
     star = star,
+    flagId = flagId,
+    flagColorArgb = flagColorArgb,
+    pinned = pinned,
+    isNote = isNote,
+    isGoal = isGoal,
+    isProject = isProject,
+    progressPct = progressPct,
+    completeInOrder = completeInOrder,
+    rrule = rrule,
+    recurrenceMode = recurrenceMode,
+    waitingForWho = waitingForWho,
+    delegatedOn = delegatedOn,
+    defaultActivityId = defaultActivityId,
+    reviewEveryDays = reviewEveryDays,
+    colorArgb = colorArgb,
     sortOrder = sortOrder,
     note = note.ifBlank { null },
+    tagIds = tagIds,
+    contextIds = contextIds,
+    winFlag = winFlag,
+    mood = mood,
+    outcomeNote = outcomeNote,
+    learnedNote = learnedNote,
+    praiseQuote = praiseQuote,
+    whyText = whyText,
+    rewardText = rewardText,
+    createdAt = createdAt,
     updatedAt = updatedAt,
 )
 
@@ -617,10 +876,12 @@ private fun NoteEntity.toDto() = NoteDto(
     title = title,
     body = body,
     notebookId = notebookId,
+    folderId = folderId,
     pinned = pinned,
     archived = archived,
     colorArgb = colorArgb,
     coverEmoji = coverEmoji,
+    createdAt = createdAt,
     updatedAt = updatedAt,
 )
 

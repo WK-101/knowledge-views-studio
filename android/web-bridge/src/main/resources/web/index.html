@@ -9,39 +9,29 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="app" class="shell" data-domain="tasks" data-sidebar="open" data-inspector="closed">
-    <!-- Nav rail -->
-    <nav class="rail" id="rail" aria-label="Sections">
-      <div class="rail-brand"><span class="dot" id="connDot" title="Connection"></span></div>
-      <button class="rail-btn" data-domain="tasks" title="Tasks" aria-label="Tasks">&#x2713;</button>
-      <button class="rail-btn" data-domain="notes" title="Notes" aria-label="Notes">&#x270E;</button>
-      <button class="rail-btn" data-domain="calendar" title="Calendar" aria-label="Calendar">&#x1F4C5;</button>
-      <button class="rail-btn" data-domain="time" title="Time" aria-label="Time">&#x23F1;</button>
-      <button class="rail-btn" data-domain="habits" title="Habits" aria-label="Habits">&#x1F501;</button>
-      <div class="rail-spacer"></div>
-      <button class="rail-btn" id="paletteBtn" title="Command (Ctrl/Cmd-K)" aria-label="Command palette">&#x2318;K</button>
-      <button class="rail-btn" id="themeBtn" title="Theme" aria-label="Toggle theme">&#x25D0;</button>
-    </nav>
-
-    <!-- Context sidebar -->
+  <div id="app" class="shell" data-domain="tasks" data-sidebar="open" data-inspector="closed" data-density="default">
+    <nav class="rail" id="rail" aria-label="Sections"></nav>
     <aside class="sidebar" id="sidebar" aria-label="Filters"></aside>
-
-    <!-- Main -->
     <main class="main">
       <header class="main-head" id="mainHead"></header>
       <p class="status" id="status" hidden></p>
       <div class="main-body" id="mainBody"></div>
     </main>
-
-    <!-- Right inspector (detail/edit) -->
     <aside class="inspector" id="inspector" aria-label="Detail" hidden></aside>
-
-    <!-- Scrim for off-canvas sidebar / overlay inspector on narrow screens -->
     <div class="scrim" id="scrim" hidden></div>
   </div>
 
   <div class="toast" id="toast" role="status" hidden></div>
 
-  <script src="app.js"></script>
+  <script src="icons.js"></script>
+  <script src="core.js"></script>
+  <script src="palette.js"></script>
+  <script src="tasks.js"></script>
+  <script src="task-editor.js"></script>
+  <script src="calendar.js"></script>
+  <script src="notes.js"></script>
+  <script src="habits.js"></script>
+  <script src="time.js"></script>
+  <script src="misc.js"></script>
 </body>
 </html>

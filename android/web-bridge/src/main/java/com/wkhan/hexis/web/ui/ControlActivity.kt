@@ -296,6 +296,7 @@ class ControlActivity : Activity() {
             BridgeScopes.DATA_CALENDAR_READ, BridgeScopes.DATA_CALENDAR_WRITE,
             BridgeScopes.DATA_TIME_READ, BridgeScopes.DATA_TIME_WRITE,
             BridgeScopes.DATA_HABITS_READ, BridgeScopes.DATA_HABITS_WRITE,
+            BridgeScopes.DATA_SETTINGS_READ, // read the phone's display config so the web mirrors it
         ).joinToString(",")
         val intent = Intent(DataConsent.ACTION).apply {
             setPackage(provider.packageName)

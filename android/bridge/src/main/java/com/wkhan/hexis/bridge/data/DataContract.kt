@@ -34,6 +34,9 @@ object DataApi {
     const val DOMAIN_TIME = "time"
     const val DOMAIN_HABITS = "habits"
 
+    /** Read-only projection of the display-relevant subset of the core's `AppSettings` → [SettingsDto]. */
+    const val DOMAIN_SETTINGS = "settings"
+
     // Ops (read)
     const val OP_LIST = "list"
     const val OP_GET = "get"
@@ -43,6 +46,28 @@ object DataApi {
 
     /** List the notebooks (names) for the notes sidebar (domain `notes`, no params) → [ListDto][]. */
     const val OP_NOTEBOOKS = "notebooks"
+
+    // Tasks sidebar + editor container/relation reads (domain `tasks`), all active-workspace scoped.
+    /** Folders (the folder tree) → [FolderDto][]. */
+    const val OP_FOLDERS = "folders"
+
+    /** Tags → [TagDto][]. */
+    const val OP_TAGS = "tags"
+
+    /** Contexts → [ContextDto][]. */
+    const val OP_CONTEXTS = "contexts"
+
+    /** Flags (labeled bookmarks) → [FlagDto][]. */
+    const val OP_FLAGS = "flags"
+
+    /** All task dependencies (blocked-by edges) → [DependencyDto][]; filter by task client-side. */
+    const val OP_DEPENDENCIES = "dependencies"
+
+    /** A task's reminders (params `{ "id": taskId }`) → [ReminderDto][]. */
+    const val OP_REMINDERS = "reminders"
+
+    /** A task's flat checklist items (params `{ "id": taskId }`) → [ChecklistItemDto][]. */
+    const val OP_CHECKLIST = "checklist"
 
     /** List the time activities (for the start-timer picker + report legend); domain `time` → [TimeActivityDto][]. */
     const val OP_ACTIVITIES = "activities"
@@ -89,6 +114,25 @@ object DataApi {
 
     /** Tap a habit's today check-in (domain `habits`, payload `{ "id": habitId }`); cycles count up to target, then clears. */
     const val OP_CHECKIN = "checkin"
+
+    // Task field-scoped writes (domain `tasks`) — these touch ONE aspect so they never wipe other fields
+    // (unlike `upsert`, which the editor uses to save a whole task authoritatively).
+    const val OP_STAR = "star" // { id, star }
+    const val OP_FLAG = "flag" // { id, flagId? }  (null clears; colour cache maintained by the core)
+    const val OP_MOVE = "move" // { id, listId, folderId? }
+    const val OP_SET_PRIORITY = "setPriority" // { id, importance, urgency }
+    const val OP_SET_TAGS = "setTags" // { id, tagIds: [] }
+    const val OP_SET_CONTEXTS = "setContexts" // { id, contextIds: [] }
+    const val OP_ABANDON = "abandon" // { id, abandoned }  (Won't Do)
+    const val OP_RESTORE = "restore" // { id }  (un-trash)
+    const val OP_SUBTASK = "subtask" // { id: parentId, title }
+    const val OP_CHECKLIST_ADD = "checklistAdd" // { id: taskId, text }
+    const val OP_CHECKLIST_SET = "checklistSet" // { id: itemId, checked?, text? }
+    const val OP_CHECKLIST_DELETE = "checklistDelete" // { id: itemId }
+    const val OP_REMINDER_ADD = "reminderAdd" // ReminderDto (taskId required)
+    const val OP_REMINDER_DELETE = "reminderDelete" // { id: reminderId }
+    const val OP_DEP_ADD = "dependencyAdd" // { taskId, dependsOnTaskId, mode?, delayDays? }
+    const val OP_DEP_REMOVE = "dependencyRemove" // { taskId, dependsOnTaskId }
 
     /**
      * Bulk write over many ids (W3), for triage on a wide screen. Payload (tasks):
