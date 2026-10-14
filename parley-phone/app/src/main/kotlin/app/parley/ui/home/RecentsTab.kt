@@ -155,6 +155,7 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
     val settings by vm.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val simLabels = remember(sims) { if (sims.size > 1) sims.associate { it.id to it.label } else emptyMap() }
+    val res = LocalResources.current
     val menuFor by recents.actionsFor.collectAsStateWithLifecycle()
     // The number with the SIM of its latest call, so a national number is read with that SIM's country.
     var messageFor by remember { mutableStateOf<Pair<String, String?>?>(null) }
@@ -305,7 +306,9 @@ fun RecentsTab(vm: AppViewModel, open: (Destination) -> Unit, bottomPadding: Dp 
                               messageFor = g.number to g.latest.accountId
                           }
                           SwipeAction.BLOCK -> blockWithUndo(vm, listOf(g.number))
-                          SwipeAction.DELETE -> vm.deleteCallsWithUndo(g.calls)
+                          // Same path (and Undo) as the menu's "Delete from history", so a swipe offers Undo in
+                          // every list, filtered or not, and restores the row's private calls too.
+                          SwipeAction.DELETE -> recents.delete(g) { n, undo -> vm.offerUndo(res.getQuantityString(R.plurals.vm_calls_deleted, n, n), undo) }
                           SwipeAction.NONE -> Unit
                       }
                   },

@@ -10,6 +10,10 @@ composeBom = "2025.12.01"
 coreKtx = "1.17.0"
 activityCompose = "1.12.2"
 lifecycle = "2.9.4"
+# Navigation stays on 2.9.x: every 2.10.x release (checked 2026-10-14, newest 2.10.2) is built against
+# compileSdk 37 and requires Android Gradle plugin 9.1.0, while this project is on compileSdk 36 / AGP 8.13.2.
+# It also drags lifecycle to 2.10/2.11 (same compileSdk 37 / AGP 9.1.0 floor). Moving to 2.10.x therefore needs
+# the compileSdk-37 + AGP-9.x toolchain upgrade first; 2.9.8 is the newest patch that still builds on this stack.
 navigation = "2.9.6"
 room = "2.8.4"
 datastore = "1.1.7"
@@ -18,8 +22,11 @@ ezvcard = "0.12.1"
 zxing = "3.5.3"
 junit = "4.13.2"
 work = "2.11.2"
-# Material 3 Expressive (MaterialExpressiveTheme, MotionScheme) is only public in 1.5 pre-releases: no stable 1.5 yet
-# (checked October 2026: newest is 1.5.0-beta01). Move to the stable release once it is out.
+# Material 3 Expressive (MaterialExpressiveTheme, MotionScheme) is only public in 1.5 pre-releases: no stable 1.5 yet.
+# alpha14 is the last 1.5 build that still targets compileSdk 35 / AGP 8.6.0; from alpha15-ish onward (checked
+# 2026-10-14: alpha29 and 1.5.0-beta01) material3 is built against compileSdk 37 and requires AGP 9.1.0, which this
+# project (compileSdk 36 / AGP 8.13.2) does not meet. beta01 is also only days old. Moving off alpha14 therefore
+# waits on the compileSdk-37 + AGP-9.x toolchain upgrade, and then on a 1.5 release that has settled.
 material3 = "1.5.0-alpha14"
 libphonenumber = "9.0.40"
 phoneGeocoder = "3.40"

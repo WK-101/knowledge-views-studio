@@ -26,18 +26,31 @@ import java.time.format.DateTimeFormatter
  * message (it can hold a name or a SIM's reply), like the crash reports. Numbers, email addresses and content URIs in
  * Android's exit notes are masked unless the user turns masking off. No contacts, no call history.
  */
-class Diagnostics(private val context: Context) {
+class Diagnostics(private val context: Context, private val keep: () -> Boolean = { true }) {
     private val prefs = StatePrefs.open(context.applicationContext, "diagnostics")
 
-    /** Remembers an error for the report (last [MAX] errors, on this phone only): where, and its kind only. */
+    /** Whether diagnostics are kept now ("Keep diagnostics"); off by default, so nothing is recorded until opted in. */
+    fun kept(): Boolean = keep()
+
+    /**
+     * Remembers an error for the report (last [MAX] errors, on this phone only): where, and its kind only. A no-op
+     * while "Keep diagnostics" is off, so nothing diagnostic is written before the user opts in.
+     */
     @Synchronized
     fun record(where: String, error: Throwable) {
+        if (!keep()) return
         val arr = catching { JSONArray(prefs.getString(KEY, "[]")) }.getOrDefault(JSONArray())
         val next = JSONArray()
         val start = maxOf(0, arr.length() - MAX + 1)
         for (i in start until arr.length()) next.put(arr.get(i))
         next.put(JSONObject().put("t", System.currentTimeMillis()).put("w", where).put("e", error.javaClass.simpleName))
         prefs.edit().putString(KEY, next.toString()).apply()
+    }
+
+    /** Forgets every kept error. Called when the user turns "Keep diagnostics" off, so nothing kept is left behind. */
+    @Synchronized
+    fun clear() {
+        prefs.edit().remove(KEY).apply()
     }
 
     fun report(settings: AppSettings, people: PeopleSettings, extra: Map<String, String>, mask: Boolean): String = buildString {

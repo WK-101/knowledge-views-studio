@@ -95,6 +95,12 @@ data class AppSettings(
      */
     val rememberNetworkNames: Boolean = false,
     /**
+     * Keep diagnostics on this phone (off by default). While off, nothing diagnostic is recorded or stored and the
+     * Diagnostics screen offers to turn it on rather than generating a report; turning it off again clears whatever was
+     * kept. Only the diagnostic record is gated — call screening itself is never affected.
+     */
+    val keepDiagnostics: Boolean = false,
+    /**
      * Never stored. Set only while a duress unlock's hiding is on (see [app.parley.common.security.DuressPolicy]): the
      * safety switches as the settings screens show them, while [hideVault] above is forced on for everything else.
      */

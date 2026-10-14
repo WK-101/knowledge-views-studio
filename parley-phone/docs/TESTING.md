@@ -4079,6 +4079,28 @@ Automated: `StaleArchiveDeleteTest` (core:data), `TemporaryRulesTest.the_upkeep_
 
 ## 56. Hide and prove (7.2)
 
+### 56.1 Undo for every Recents delete, filtered or not
+Automated: `RecentsViewModelTest.delete_from_a_filtered_list_offers_undo_and_restores_the_row` and `RecentsFilteredUndoTest.deleting_from_the_missed_filter_offers_undo` (app).
+1. In Recents, tap the **Missed** chip. Delete a call each way and check an **Undo** snackbar appears every time: a swipe (if swipes are on, Settings › Appearance), the selection bar's trash (long-press a row first), and the selection bar's ⋮ › **Delete from history**. Compare with the unfiltered list — Undo appears there too.
+2. Tap **Undo** each time: the row comes back. Repeat under another chip (Incoming, Unknown…): Undo appears and restores just as on the full list.
+3. With private contacts shown, delete a row for a number that also has private calls: Undo restores both the system-log and the private calls.
+
+### 56.2 Tablet two-pane opens beside the list
+Automated: `UiSmokeTest.tablet_contacts_open_the_page_beside_the_list` (made deterministic — a forced tablet display and waiting for the row to load before tapping it, so it is stable on CI runners too).
+1. On a tablet (or a large foldable in landscape), open Contacts: the list is on the left and "Choose someone to see their page here" fills the right pane.
+2. Tap a contact: their page opens in the right pane, the list stays and marks the open row. Back closes the page and leaves the list.
+
+### 56.3 Diagnostics are off until you turn them on
+Automated: `DiagnosticsTest.whileOffNothingIsRecorded` (core:data).
+1. On a phone that never turned diagnostics on: Settings › About › **Export diagnostics**. The screen explains diagnostics are off and shows **Turn on diagnostics**; no report, nothing to save or share.
+2. Make something Parley notes fail (e.g. Copy to SIM with no SIM in the slot): nothing is recorded. Turn diagnostics on afterwards and "Recent errors" shows nothing from before you opted in.
+
+### 56.4 Turning diagnostics on and off
+Automated: `DiagnosticsTest.turningOnRecordsAndTurningOffClears` (core:data).
+1. On the Diagnostics screen tap **Turn on diagnostics**: the report appears (device, settings, and from now on recent errors), **Keep diagnostics** is on, and Save as file / Share work.
+2. Make something fail again: it shows under "Recent errors".
+3. Turn **Keep diagnostics** off: the screen returns to the explanation. Turn it on again — "Recent errors" reads "None recorded"; the kept record was cleared. Blocked and allowed calls behave the same throughout, whether diagnostics are on or off.
+
 ### 56.5 The right code per country, and never where it mustn't go (SX-1)
 Automated: `HideNumberTest` (core:common: #31#/*31# default, North America *67/*82, UK 141/1470, Australia 1831/1832, Japan 184/186; service/USSD/internet/already-coded numbers never prefixed; `apply`'s show/hide; stripping for history/redial and `apply`-then-`strip` round-trips), `CallLogIndexTest.a_hidden_call_keys_under_the_plain_number`, `CallLogIndexTest.a_hidden_call_is_grouped_under_the_contact` (core:common).
 1. On a SIM whose country is the UK, type a number on the keypad, press and hold Call, and turn on "Hide my number for this call", then Call. (On a debug build, confirm the placed number by logcat or a test SIM.) The dialled string is `141` + the number. Repeat with a North-American SIM (`*67`), an Australian SIM (`1831`), a Japanese SIM (`184`), and a SIM whose country Parley can't tell or has no entry (`#31#`).
@@ -4110,3 +4132,4 @@ Automated: `HideNumberTest.call_again_showing_is_offered_only_for_a_refused_hidd
 1. Place a call with your number hidden to a line that rejects withheld numbers (or simulate a REMOTE/REJECTED end on a test build). The call-ended screen says "Some people don't answer hidden numbers. Call again showing your number?" with that action and a dismiss.
 2. Tap it: the same number is redialled on the same SIM with the show code (`*31#`/`*82`/`1470`/…). Dismiss: the offer stays gone.
 3. A hidden call that connected, that you ended yourself, or that rang and was simply missed, is **not** offered this. A call placed with your number shown is never offered it.
+

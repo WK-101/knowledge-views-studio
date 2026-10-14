@@ -73,6 +73,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
@@ -314,12 +315,24 @@ class UiSmokeTest {
 
     private fun hasText(text: String) = compose.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
 
+    /**
+     * Forces the emulated display to tablet width before the screen is drawn, so the two-pane layout is chosen whether
+     * the runner reads it from [androidx.compose.ui.platform.LocalWindowInfo]'s container size or the configuration
+     * (see rememberWindowLayout). The @Config qualifier sets it at launch; this makes it deterministic on every runner.
+     */
+    private fun forceTablet() = RuntimeEnvironment.setQualifiers("+w1280dp-h800dp")
+
     @Config(qualifiers = TABLET)
     @Test
     fun tablet_contacts_open_the_page_beside_the_list() {
+        forceTablet()
         val opened = mutableListOf<Destination>()
         home(Look.LIGHT, StartTab.CONTACTS, opened)
         shows("Choose someone to see their page here")
+        // The contact rows load off the main thread: wait for the row (and assert it) before clicking it, instead of
+        // assuming it is already there once the empty detail pane has drawn.
+        compose.waitUntil(10_000) { hasText("Ada Lovelace") }
+        compose.onAllNodesWithText("Ada Lovelace")[0].assertExists()
         compose.onAllNodesWithText("Ada Lovelace")[0].performClick()
         // The page opens in the pane (its Edit button is there), not as a page over Home; the list stays.
         compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Edit").fetchSemanticsNodes().isNotEmpty() }
@@ -335,6 +348,7 @@ class UiSmokeTest {
     @Config(qualifiers = TABLET)
     @Test
     fun tablet_contacts_dark_large_font_rtl() {
+        forceTablet()
         home(Look.LARGE_FONT_RTL, StartTab.CONTACTS, mutableListOf())
         shows("Ada Lovelace")
         shows("Choose someone to see their page here")
@@ -343,6 +357,7 @@ class UiSmokeTest {
     @Config(qualifiers = TABLET)
     @Test
     fun tablet_recents_have_a_detail_pane() {
+        forceTablet()
         home(Look.DARK, StartTab.RECENTS, mutableListOf())
         shows("Ada Lovelace")
         shows("Choose a call to see more about it here")
@@ -351,6 +366,7 @@ class UiSmokeTest {
     @Config(qualifiers = TABLET)
     @Test
     fun tablet_keypad_and_favourites_draw() {
+        forceTablet()
         home(Look.LIGHT, StartTab.KEYPAD, mutableListOf())
         // Favourites as Home draws them on a wide screen (centred, at most their width).
         show(Look.DARK) { vm -> Centred(rememberWindowLayout().contentMaxDp) { FavoritesTab(vm, noRoute) } }
