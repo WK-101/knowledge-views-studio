@@ -11,10 +11,12 @@ import com.wkhan.hexis.bridge.data.DataPage
 import com.wkhan.hexis.bridge.data.DataQuery
 import com.wkhan.hexis.bridge.data.DataResult
 import com.wkhan.hexis.bridge.data.EventDto
+import com.wkhan.hexis.bridge.data.HabitDayDto
 import com.wkhan.hexis.bridge.data.HabitDto
 import com.wkhan.hexis.bridge.data.ListDto
 import com.wkhan.hexis.bridge.data.NoteDto
 import com.wkhan.hexis.bridge.data.TaskDto
+import com.wkhan.hexis.bridge.data.TimeActivityDto
 import com.wkhan.hexis.bridge.data.TimeEntryDto
 import com.wkhan.hexis.data.AppRepository
 import com.wkhan.hexis.data.entity.EventCalendarEntity
@@ -52,9 +54,21 @@ class RepositoryDataSource(
         DataApi.DOMAIN_TASKS -> queryTasks(query)
         DataApi.DOMAIN_NOTES -> queryNotes(query)
         DataApi.DOMAIN_CALENDAR -> queryCalendar(query)
-        DataApi.DOMAIN_TIME -> queryListOnly(query) { allTimeEntryDtos() }
-        DataApi.DOMAIN_HABITS -> queryListOnly(query) { allHabitDtos() }
+        DataApi.DOMAIN_TIME -> queryTime(query)
+        DataApi.DOMAIN_HABITS -> queryHabits(query)
         else -> throw UnsupportedDomainException(query.domain)
+    }
+
+    private suspend fun queryTime(query: DataQuery): DataPage = when (query.op) {
+        DataApi.OP_LIST -> listPage(allTimeEntryDtos(), query) { it }
+        DataApi.OP_ACTIVITIES -> listPage(timeActivityDtos(), query) { it }
+        else -> throw UnsupportedDomainException("time.${query.op}")
+    }
+
+    private suspend fun queryHabits(query: DataQuery): DataPage = when (query.op) {
+        DataApi.OP_LIST -> listPage(allHabitDtos(), query) { it }
+        DataApi.OP_HISTORY -> listPage(habitHistoryDtos(query), query) { it }
+        else -> throw UnsupportedDomainException("habits.${query.op}")
     }
 
     private suspend fun queryCalendar(query: DataQuery): DataPage = when (query.op) {
@@ -158,6 +172,8 @@ class RepositoryDataSource(
         DataApi.DOMAIN_TASKS -> mutateTask(mutation)
         DataApi.DOMAIN_NOTES -> mutateNote(mutation)
         DataApi.DOMAIN_CALENDAR -> mutateCalendar(mutation)
+        DataApi.DOMAIN_TIME -> mutateTime(mutation)
+        DataApi.DOMAIN_HABITS -> mutateHabits(mutation)
         else -> throw UnsupportedDomainException(mutation.domain)
     }
 
@@ -375,6 +391,40 @@ class RepositoryDataSource(
         return id
     }
 
+    // ---- time writes (R3d): start / stop a timer ----------------------------------------------------
+    @Suppress("ReturnCount")
+    private suspend fun mutateTime(mutation: DataMutation): DataResult {
+        return when (mutation.op) {
+            DataApi.OP_START -> {
+                val activityId = decode<ActivityParam>(mutation.payloadJson)?.activityId ?: return bad("invalid activity")
+                val act = repo.wsTimeActivitiesOnce().firstOrNull { it.id == activityId } ?: return bad("not_found")
+                ok(repo.startTimeTracking(act.id)) // stopFirst = true: one running timer at a time
+            }
+            DataApi.OP_STOP -> {
+                val id = decode<IdParam>(mutation.payloadJson)?.id?.takeIf { it.isNotBlank() }
+                if (id != null) repo.stopTimeEntry(id) else repo.stopTimeTracking()
+                ok(id ?: "")
+            }
+            else -> throw UnsupportedDomainException("time.${mutation.op}")
+        }
+    }
+
+    // ---- habit writes (R3d): tap today's check-in (cycles up to target, then clears) ----------------
+    @Suppress("ReturnCount")
+    private suspend fun mutateHabits(mutation: DataMutation): DataResult {
+        return when (mutation.op) {
+            DataApi.OP_CHECKIN -> {
+                val id = decode<IdParam>(mutation.payloadJson)?.id ?: return bad("invalid id")
+                val habit = repo.wsHabitsOnce().firstOrNull { it.id == id } ?: return bad("not_found")
+                val today = java.time.LocalDate.now().toEpochDay()
+                val current = repo.getHabitCheckinsOnce().firstOrNull { it.habitId == id && it.epochDay == today }?.count ?: 0
+                repo.cycleCheckin(habitId = id, epochDay = today, target = habit.targetPerDay, current = current)
+                ok(id)
+            }
+            else -> throw UnsupportedDomainException("habits.${mutation.op}")
+        }
+    }
+
     private inline fun <reified T> decode(json: String): T? =
         runCatching { BridgeCodec.decodeString<T>(json) }.getOrNull()
 
@@ -459,6 +509,25 @@ class RepositoryDataSource(
             }
     }
 
+    /** The active-workspace time activities (for the start-timer picker + report legend), live first. */
+    private suspend fun timeActivityDtos(): List<TimeActivityDto> =
+        repo.wsTimeActivitiesOnce()
+            .filter { !it.archived }
+            .sortedBy { it.sortOrder }
+            .map { TimeActivityDto(id = it.id, name = it.name, emoji = it.emoji, colorArgb = it.colorArgb, goalMinutesPerDay = it.goalMinutesPerDay) }
+
+    /** Per-habit per-day check-in cells over the last N days (default 84 ≈ 12 weeks) for the heatmap. */
+    private suspend fun habitHistoryDtos(query: DataQuery): List<HabitDayDto> {
+        val days = (runCatching { BridgeCodec.decodeString<Map<String, Int>>(query.paramsJson) }.getOrNull().orEmpty()["days"] ?: DEFAULT_HISTORY_DAYS)
+            .coerceIn(1, MAX_HISTORY_DAYS)
+        val today = java.time.LocalDate.now().toEpochDay()
+        val from = today - days + 1
+        val habitIds = repo.wsHabitsOnce().map { it.id }.toSet()
+        return repo.getHabitCheckinsOnce()
+            .filter { it.habitId in habitIds && it.epochDay in from..today }
+            .map { HabitDayDto(habitId = it.habitId, epochDay = it.epochDay, count = it.count, done = it.status == "done") }
+    }
+
     private suspend fun allHabitDtos(): List<HabitDto> {
         val today = java.time.LocalDate.now().toEpochDay()
         val todayCheckins = repo.getHabitCheckinsOnce().filter { it.epochDay == today }.associateBy { it.habitId }
@@ -502,6 +571,8 @@ class RepositoryDataSource(
         const val MAX_PAGE = 500
         const val ONE_HOUR_MS = 3_600_000L
         const val DEFAULT_CAL_COLOR = 0xFF4F46E5L // indigo, matching the core's on-demand default calendar
+        const val DEFAULT_HISTORY_DAYS = 84 // ≈ 12 weeks of habit heatmap
+        const val MAX_HISTORY_DAYS = 371 // a year-plus, bounded
     }
 }
 
@@ -509,6 +580,9 @@ class RepositoryDataSource(
 
 @Serializable
 private data class IdParam(val id: String)
+
+@Serializable
+private data class ActivityParam(val activityId: String)
 
 @Serializable
 private data class CompleteParam(val id: String, val completed: Boolean = true)

@@ -44,6 +44,15 @@ object DataApi {
     /** List the notebooks (names) for the notes sidebar (domain `notes`, no params) → [ListDto][]. */
     const val OP_NOTEBOOKS = "notebooks"
 
+    /** List the time activities (for the start-timer picker + report legend); domain `time` → [TimeActivityDto][]. */
+    const val OP_ACTIVITIES = "activities"
+
+    /**
+     * Per-habit per-day check-in cells for the heatmap (domain `habits`, params `{ "days": N }`,
+     * default 84) → [HabitDayDto][] for the active-workspace habits over the last N days.
+     */
+    const val OP_HISTORY = "history"
+
     /** List the event calendars (for the web calendar picker + colour legend); domain `calendar` → [CalendarDto][]. */
     const val OP_CALENDARS = "calendars"
 
@@ -71,6 +80,15 @@ object DataApi {
     const val OP_UPSERT = "upsert"
     const val OP_DELETE = "delete"
     const val OP_COMPLETE = "complete"
+
+    /** Start a timer for an activity (domain `time`, payload `{ "activityId": id }`); stops any running one first. */
+    const val OP_START = "start"
+
+    /** Stop the running timer (domain `time`, payload `{ "id": entryId }` for a specific one, else `{}` for all). */
+    const val OP_STOP = "stop"
+
+    /** Tap a habit's today check-in (domain `habits`, payload `{ "id": habitId }`); cycles count up to target, then clears. */
+    const val OP_CHECKIN = "checkin"
 
     /**
      * Bulk write over many ids (W3), for triage on a wide screen. Payload (tasks):

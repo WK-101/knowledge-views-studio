@@ -11,8 +11,11 @@ Status: **R1 + R2 shipped in web-bridge 0.2.0.** R3 (desktop UI) is building in 
 **R3b** (Calendar Month/Week/Agenda + event create/edit/delete, `calendar.occurrences`/`calendar.calendars`
 reads and `calendar` writes) shipped in **0.3.1**;
 **R3c** (Notes Keep-style masonry + a markdown editor with Edit/Preview, note colours + cover emoji + pin,
-`notes.notebooks` read and colour/emoji on `notes` writes) shipped in **0.3.2**.
-R3d (Time + Habits) / R3e (palette + polish) remain. Blueprint below.
+`notes.notebooks` read and colour/emoji on `notes` writes) shipped in **0.3.2**;
+**R3d** (Time dashboard with a running-timer clock + stat tiles + a 14-day bar chart + per-activity bars, a
+Habits check-in-card + 12-week heatmap view, with `time.activities`/`habits.history` reads and
+`time.start`/`time.stop`/`habits.checkin` writes) shipped in **0.3.3**.
+R3e (command palette + keyboard + polish) remains. Blueprint below.
 
 ---
 
@@ -104,9 +107,12 @@ list". Every reference app splits the width into panes. Target shell (TickTick /
   in the right inspector (click a day/slot to seed a new one); recurring events show a ↻ chip and keep their
   series timing (text edits only from the web — rescheduling a series stays a phone action); calendars legend
   in the sidebar. *Still to do: a mini-month navigator and tasks-with-due-dates overlaid (Morgen-style).*
-- **Time** → a **report dashboard**: summary stat tiles + a bar chart (per `dataviz` conventions) + the
-  detail table.
-- **Habits** → a **habit × day heatmap** (or card grid with streaks) instead of a flat list.
+- **Time** ✅ (R3d): a **report dashboard** — a running-timer banner with a live clock + Stop, summary stat
+  tiles (today / this week / sessions), a 14-day daily **bar chart** (per `dataviz`: single hue, today
+  emphasised), per-activity bars for the week, and the recent entries. Start a timer by tapping an activity
+  in the sidebar; stop from the banner.
+- **Habits** ✅ (R3d): check-in **cards** with a progress ring (tap to cycle today's count, done-state
+  tinted) + a **12-week habit × day heatmap** (one colour-graded strip per habit). Tap cycles the check-in.
 
 **Cross-cutting**: a **Cmd/Ctrl-K command palette** (the strongest "native desktop" signal), a real keyboard
 model, **optimistic updates** (mutate local state immediately; the WS reconciles; roll back + toast on

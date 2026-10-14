@@ -75,6 +75,25 @@ data class EventDto(
     val linkedTaskId: String? = null,
 )
 
+/** A time activity (for the web start-timer picker + report legend). [goalMinutesPerDay] 0 = no goal. */
+@Serializable
+data class TimeActivityDto(
+    val id: String,
+    val name: String,
+    val emoji: String? = null,
+    val colorArgb: Long? = null,
+    val goalMinutesPerDay: Int = 0,
+)
+
+/** One habit's check-in for one day (for the heatmap). [done] mirrors the "done" status; [count] is progress. */
+@Serializable
+data class HabitDayDto(
+    val habitId: String,
+    val epochDay: Long,
+    val count: Int = 0,
+    val done: Boolean = false,
+)
+
 /** A time-tracking entry. [endMillis] null = still running; [minutes] is the resolved duration. */
 @Serializable
 data class TimeEntryDto(

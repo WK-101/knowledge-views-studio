@@ -83,7 +83,7 @@
 
   // ============================================================== state
   const DOMAINS = ["tasks", "notes", "calendar", "time", "habits"];
-  const state = { tasks: [], lists: [], notes: [], notebooks: [], calendar: [], calendars: [], time: [], habits: [] };
+  const state = { tasks: [], lists: [], notes: [], notebooks: [], calendar: [], calendars: [], time: [], activities: [], habits: [], habitHistory: [] };
   let seen = {};
   let readOnly = false;
 
@@ -289,6 +289,15 @@
         query("calendar", "calendars").catch(() => []),
       ]);
       state.calendar = events; state.calendars = cals;
+    } else if (d === "time") {
+      const [entries, acts] = await Promise.all([query("time", "list"), query("time", "activities").catch(() => [])]);
+      state.time = entries; state.activities = acts;
+    } else if (d === "habits") {
+      const [habits, history] = await Promise.all([
+        query("habits", "list"),
+        query("habits", "history", { paramsJson: JSON.stringify({ days: 84 }) }).catch(() => []),
+      ]);
+      state.habits = habits; state.habitHistory = history;
     } else {
       state[d] = await query(d, "list");
     }
@@ -330,8 +339,8 @@
     if (ui.domain === "tasks") { sb.innerHTML = tasksSidebar(); return; }
     if (ui.domain === "notes") { sb.innerHTML = notesSidebar(); return; }
     if (ui.domain === "calendar") { sb.innerHTML = calendarSidebar(); return; }
-    if (ui.domain === "time") { sb.innerHTML = simpleSidebar("Time", [["recent", "Recent"]], "recent"); return; }
-    if (ui.domain === "habits") { sb.innerHTML = simpleSidebar("Habits", [["all", "Today"]], "all"); return; }
+    if (ui.domain === "time") { sb.innerHTML = timeSidebar(); return; }
+    if (ui.domain === "habits") { sb.innerHTML = habitsSidebar(); return; }
   }
   function simpleSidebar(title, items, active) {
     return '<h2 class="sb-title">' + esc(title) + "</h2><ul class=\"sb-list\">" +
@@ -360,6 +369,30 @@
     }).join("");
     return '<h2 class="sb-title">Notes</h2><ul class="sb-list">' + smartHtml + "</ul>" +
       (books ? '<h3 class="sb-sub">Notebooks</h3><ul class="sb-list">' + books + "</ul>" : "");
+  }
+  function timeSidebar() {
+    const run = runningEntry();
+    const todayByAct = minutesByActivity(startOfToday(), Date.now());
+    const acts = state.activities.slice().sort((a, b) => (todayByAct[b.id] || 0) - (todayByAct[a.id] || 0));
+    const list = acts.length ? acts.map((a) => {
+      const col = argb(a.colorArgb) || "var(--accent)";
+      const running = run && run.activityId === a.id;
+      const mins = todayByAct[a.id] || 0;
+      return '<li class="sb-item act' + (running ? " running" : "") + '"' + (readOnly ? "" : ' data-start="' + esc(a.id) + '"') + ">" +
+        '<span class="sb-ico"><span class="sb-dot" style="background:' + col + '"></span></span>' +
+        '<span class="sb-label">' + (a.emoji ? esc(a.emoji) + " " : "") + esc(a.name) + "</span>" +
+        '<span class="sb-count">' + (running ? "●" : (mins ? fmtDuration(mins) : (readOnly ? "" : "▶"))) + "</span></li>";
+    }).join("") : '<li class="sb-item static"><span class="sb-label" style="color:var(--muted)">No activities yet</span></li>';
+    return '<h2 class="sb-title">Activities</h2>' +
+      (readOnly ? "" : '<p class="sb-hint">Tap one to start a timer.</p>') +
+      '<ul class="sb-list">' + list + "</ul>";
+  }
+  function habitsSidebar() {
+    const active = state.habits.filter((h) => !h.paused);
+    const done = active.filter((h) => h.doneToday).length;
+    return '<h2 class="sb-title">Habits</h2>' +
+      '<div class="cal-today"><span class="cal-today-dow">Today</span><span class="cal-today-day">' + done + "/" + active.length + "</span>" +
+      '<span class="cal-today-mon">habits done</span></div>';
   }
   function calendarSidebar() {
     const d = new Date(ui.calAnchor);
@@ -413,11 +446,12 @@
   function renderMain() {
     const head = el("mainHead"), body = el("mainBody");
     body.onclick = null;
+    stopClock(); // only the Time view with a running timer re-arms it
     if (ui.domain === "tasks") { head.innerHTML = tasksHead(); body.innerHTML = tasksMain(); wireTasksMain(); }
     else if (ui.domain === "notes") { head.innerHTML = headTitle(noteFilterLabel(), readOnly ? "" : '<button class="btn primary" data-new="note">New note</button>'); body.innerHTML = notesMain(); body.onclick = onNotesClick; }
     else if (ui.domain === "calendar") { head.innerHTML = calendarHead(); body.innerHTML = calendarMain(); wireCalendar(); }
-    else if (ui.domain === "time") { head.innerHTML = headTitle("Time", ""); body.innerHTML = timeMain(); }
-    else if (ui.domain === "habits") { head.innerHTML = headTitle("Habits", ""); body.innerHTML = habitsMain(); }
+    else if (ui.domain === "time") { head.innerHTML = headTitle("Time", ""); body.innerHTML = timeMain(); wireTime(); }
+    else if (ui.domain === "habits") { head.innerHTML = headTitle("Habits", ""); body.innerHTML = habitsMain(); wireHabits(); }
     const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
     const nb = head.querySelector('[data-new="note"]'); if (nb) nb.onclick = () => openInspector("notes", "__new__");
   }
@@ -739,29 +773,133 @@
         }).join("") + "</ul></section>";
     }).join("") + "</div>";
   }
-  function timeMain() {
-    const entries = state.time.slice(0, 300);
-    const t0 = startOfToday();
-    const todayMin = entries.filter((e) => e.startMillis >= t0).reduce((s, e) => s + (e.minutes || 0), 0);
-    if (!entries.length) return emptyState("No time entries", "");
-    const rows = entries.map((e) =>
-      '<li class="erow"><span class="einfo"><span class="etitle">' + esc(e.activityName || "Activity") +
-      (e.running ? ' <span class="chip live">● live</span>' : "") + "</span>" +
-      '<span class="emeta">' + esc(fmtDateTime(e.startMillis)) + (e.note ? " · " + esc(e.note) : "") + "</span></span>" +
-      '<span class="dur">' + esc(fmtDuration(e.minutes)) + "</span></li>").join("");
-    return '<div class="summary">Today · <strong>' + esc(fmtDuration(todayMin)) + "</strong> tracked</div><ul class=\"elist\">" + rows + "</ul>";
+  // ---- Time (dashboard: running timer + tiles + 14-day chart + by-activity + recent) --------
+  function runningEntry() { return state.time.find((e) => e.running) || null; }
+  function minutesByActivity(from, to) {
+    const map = {};
+    state.time.forEach((e) => {
+      if (e.startMillis >= from && e.startMillis < to) map[e.activityId] = (map[e.activityId] || 0) + (e.minutes || 0);
+    });
+    return map;
   }
+  function dailyMinutes(days) {
+    const t0 = startOfToday(), out = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d0 = addDays(t0, -i), d1 = addDays(d0, 1);
+      const min = state.time.filter((e) => e.startMillis >= d0 && e.startMillis < d1).reduce((s, e) => s + (e.minutes || 0), 0);
+      out.push({ day: d0, min: min });
+    }
+    return out;
+  }
+  function timeMain() {
+    const run = runningEntry();
+    const t0 = startOfToday();
+    const weekStartMs = weekStart(Date.now());
+    const todayMin = state.time.filter((e) => e.startMillis >= t0).reduce((s, e) => s + (e.minutes || 0), 0);
+    const weekMin = state.time.filter((e) => e.startMillis >= weekStartMs).reduce((s, e) => s + (e.minutes || 0), 0);
+    const todaySessions = state.time.filter((e) => e.startMillis >= t0).length;
+    const runBanner = run
+      ? '<div class="run-banner"><span class="run-pulse"></span>' +
+        '<div class="run-info"><span class="run-act">' + esc(run.activityName || "Tracking") + "</span>" +
+        '<span class="run-elapsed" id="runElapsed" data-start="' + run.startMillis + '">' + esc(fmtDuration(run.minutes)) + "</span></div>" +
+        (readOnly ? "" : '<button class="btn danger solid" data-stop="' + esc(run.id) + '">Stop</button>') + "</div>"
+      : (readOnly || !state.activities.length ? "" :
+        '<div class="run-banner idle"><span class="run-info"><span class="run-act">Nothing tracking</span>' +
+        '<span class="run-elapsed muted">Start an activity from the sidebar</span></span></div>');
+    const tiles = '<div class="tiles">' +
+      tile("Today", fmtDuration(todayMin), "tracked") +
+      tile("This week", fmtDuration(weekMin), "tracked") +
+      tile("Sessions", String(todaySessions), "today") + "</div>";
+    // 14-day chart
+    const series = dailyMinutes(14);
+    const max = Math.max(60, ...series.map((d) => d.min));
+    const bars = series.map((d) => {
+      const h = Math.round((d.min / max) * 100);
+      const dd = new Date(d.day);
+      const lbl = dd.getDate();
+      const isToday = d.day === t0;
+      return '<div class="bar-col" title="' + esc(fmtDate(d.day) + " · " + fmtDuration(d.min)) + '">' +
+        '<div class="bar-track"><div class="bar-fill' + (isToday ? " today" : "") + '" style="height:' + h + '%"></div></div>' +
+        '<span class="bar-lbl">' + lbl + "</span></div>";
+    }).join("");
+    const chart = '<section class="panel"><h3 class="panel-h">Last 14 days</h3><div class="barchart">' + bars + "</div></section>";
+    // by-activity this week
+    const byAct = minutesByActivity(weekStartMs, Date.now());
+    const actRows = state.activities.map((a) => ({ a: a, min: byAct[a.id] || 0 })).filter((x) => x.min > 0).sort((x, y) => y.min - x.min);
+    const maxAct = Math.max(1, ...actRows.map((x) => x.min));
+    const byActHtml = actRows.length ? '<section class="panel"><h3 class="panel-h">This week by activity</h3><div class="actbars">' +
+      actRows.map((x) => {
+        const col = argb(x.a.colorArgb) || "var(--accent)";
+        return '<div class="actbar"><span class="actbar-name">' + (x.a.emoji ? esc(x.a.emoji) + " " : "") + esc(x.a.name) + "</span>" +
+          '<div class="actbar-track"><div class="actbar-fill" style="width:' + Math.round((x.min / maxAct) * 100) + "%;background:" + col + '"></div></div>' +
+          '<span class="actbar-val">' + esc(fmtDuration(x.min)) + "</span></div>";
+      }).join("") + "</div></section>" : "";
+    // recent entries
+    const recent = state.time.slice(0, 40);
+    const recentHtml = recent.length ? '<section class="panel"><h3 class="panel-h">Recent</h3><ul class="elist">' +
+      recent.map((e) => {
+        const col = argb((state.activities.find((a) => a.id === e.activityId) || {}).colorArgb) || "var(--accent)";
+        return '<li class="erow"><span class="cdot" style="background:' + col + '"></span>' +
+          '<span class="einfo"><span class="etitle">' + esc(e.activityName || "Activity") +
+          (e.running ? ' <span class="chip live">● live</span>' : "") + "</span>" +
+          '<span class="emeta">' + esc(fmtDateTime(e.startMillis)) + (e.note ? " · " + esc(e.note) : "") + "</span></span>" +
+          '<span class="dur">' + esc(fmtDuration(e.minutes)) + "</span></li>";
+      }).join("") + "</ul></section>" : "";
+    if (!state.time.length && !state.activities.length) return runBanner + emptyState("No time tracked yet", "Create activities on your phone, then start a timer here.");
+    return runBanner + tiles + chart + byActHtml + recentHtml;
+  }
+  function tile(label, value, sub) {
+    return '<div class="tile"><span class="tile-label">' + esc(label) + '</span><span class="tile-value">' + esc(value) + "</span>" +
+      '<span class="tile-sub">' + esc(sub) + "</span></div>";
+  }
+
+  // ---- Habits (today check-in cards + 12-week heatmap) --------------------
+  function todayEpochDay() { const n = new Date(); return Math.floor(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / DAY); }
+  function epochDayToDate(day) { const d = new Date(day * DAY); return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
   function habitsMain() {
     const habits = state.habits;
-    if (!habits.length) return emptyState("No habits", "");
-    const row = (h) => '<li class="trow' + (h.doneToday ? " done" : "") + '">' +
-      '<span class="check static">' + (h.doneToday ? "&#x2713;" : "") + "</span>" +
-      '<span class="trow-main"><span class="trow-title">' + (h.emoji ? esc(h.emoji) + " " : "") + esc(h.name) +
-      (h.paused ? ' <span class="chip">paused</span>' : "") + "</span></span>" +
-      (h.targetPerDay > 1 ? '<span class="due">' + (h.todayCount || 0) + "/" + h.targetPerDay + "</span>" : "") + "</li>";
-    const active = habits.filter((h) => !h.paused), paused = habits.filter((h) => h.paused);
-    return '<ul class="tlist">' + active.map(row).join("") + "</ul>" +
-      (paused.length ? '<h3 class="group-h">Paused</h3><ul class="tlist">' + paused.map(row).join("") + "</ul>" : "");
+    if (!habits.length) return emptyState("No habits", "Create habits on your phone — they'll appear here to check in and review.");
+    const active = habits.filter((h) => !h.paused);
+    const paused = habits.filter((h) => h.paused);
+    const cards = '<div class="hcards">' + active.map(habitCard).join("") + "</div>";
+    // heatmap
+    const DAYS = 84;
+    const today = todayEpochDay();
+    const cell = {};
+    state.habitHistory.forEach((c) => { cell[c.habitId + ":" + c.epochDay] = c; });
+    const rows = active.map((h) => heatRow(h, today, DAYS, cell)).join("");
+    const heat = active.length ? '<section class="panel"><h3 class="panel-h">Last 12 weeks</h3><div class="heatmap">' + rows + "</div></section>" : "";
+    const pausedHtml = paused.length ? '<h3 class="group-h">Paused</h3><div class="hcards">' + paused.map(habitCard).join("") + "</div>" : "";
+    return cards + heat + pausedHtml;
+  }
+  function habitCard(h) {
+    const done = h.doneToday;
+    const multi = h.targetPerDay > 1;
+    const pct = multi ? Math.min(100, Math.round((h.todayCount / h.targetPerDay) * 100)) : (done ? 100 : 0);
+    const col = argb(h.colorArgb) || "var(--accent)";
+    const sub = h.paused ? "Paused" : multi ? (h.todayCount + " / " + h.targetPerDay + (h.unit ? " " + h.unit : "")) : (done ? "Done today" : "Tap to check in");
+    const tag = readOnly ? "div" : "button";
+    return "<" + tag + ' class="hcard' + (done ? " done" : "") + (h.paused ? " paused" : "") + '"' + (readOnly ? "" : ' data-checkin="' + esc(h.id) + '"') + ' style="--hc:' + col + '">' +
+      '<span class="hcard-ring" style="--pct:' + pct + '"><span class="hcard-check">' + (done ? "✓" : (h.emoji ? esc(h.emoji) : "")) + "</span></span>" +
+      '<span class="hcard-main"><span class="hcard-name">' + esc(h.name) + "</span>" +
+      '<span class="hcard-sub">' + esc(sub) + "</span></span></" + tag + ">";
+  }
+  function heatRow(h, today, days, cell) {
+    const col = argb(h.colorArgb) || "var(--accent)";
+    let cells = "";
+    for (let i = days - 1; i >= 0; i--) {
+      const day = today - i;
+      const c = cell[h.id + ":" + day];
+      let lvl = 0;
+      if (c) {
+        if (c.done) { const t = Math.max(1, h.targetPerDay); lvl = h.targetPerDay > 1 ? Math.min(4, 1 + Math.floor((c.count / t) * 3)) : 4; }
+        else lvl = 1;
+      }
+      const title = epochDayToDate(day).toLocaleDateString(undefined, { month: "short", day: "numeric" }) + (c && c.done ? " ✓" : "");
+      cells += '<span class="hcell l' + lvl + '" title="' + esc(title) + '"></span>';
+    }
+    return '<div class="heatrow" style="--hc:' + col + '"><span class="heatrow-name">' + (h.emoji ? esc(h.emoji) + " " : "") + esc(h.name) + "</span>" +
+      '<div class="heatcells">' + cells + "</div></div>";
   }
 
   function emptyState(title, sub) {
@@ -1161,8 +1299,52 @@
     };
   }
 
+  // ---- time: live clock + start/stop --------------------------------------
+  let clockTimer = null;
+  function startClock() { stopClock(); clockTimer = setInterval(updateRunClock, 1000); }
+  function stopClock() { if (clockTimer) { clearInterval(clockTimer); clockTimer = null; } }
+  function fmtClock(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000)), p = (n) => String(n).padStart(2, "0");
+    const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60;
+    return hh > 0 ? hh + ":" + p(mm) + ":" + p(ss) : mm + ":" + p(ss);
+  }
+  function updateRunClock() {
+    const elx = el("runElapsed");
+    if (!elx) { stopClock(); return; }
+    const start = Number(elx.dataset.start || 0);
+    if (start) elx.textContent = fmtClock(Date.now() - start);
+  }
+  function wireTime() {
+    const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
+    if (!readOnly) el("mainBody").onclick = (e) => {
+      const stopBtn = e.target.closest("[data-stop]");
+      if (stopBtn) stopTimer(stopBtn.dataset.stop);
+    };
+    const run = runningEntry();
+    if (run) { const elx = el("runElapsed"); if (elx) elx.textContent = fmtClock(Date.now() - run.startMillis); startClock(); }
+  }
+  async function startTimer(activityId) {
+    try { await mutate("time", "start", { activityId: activityId }); await reloadDomain("time"); render(); toast("Timer started"); } catch (err) { toast(err.message); }
+  }
+  async function stopTimer(id) {
+    try { await mutate("time", "stop", { id: id || "" }); await reloadDomain("time"); render(); toast("Stopped"); } catch (err) { toast(err.message); }
+  }
+
+  // ---- habits: check-in tap -----------------------------------------------
+  function wireHabits() {
+    const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
+    if (readOnly) return;
+    el("mainBody").onclick = async (e) => {
+      const c = e.target.closest("[data-checkin]");
+      if (!c) return;
+      try { await mutate("habits", "checkin", { id: c.dataset.checkin }); await reloadDomain("habits"); render(); } catch (err) { toast(err.message); }
+    };
+  }
+
   function wireSidebar() {
     el("sidebar").addEventListener("click", (e) => {
+      const startBtn = e.target.closest("[data-start]");
+      if (startBtn && !readOnly) { startTimer(startBtn.dataset.start); return; }
       const calBtn = e.target.closest("[data-cal]");
       if (calBtn) { onCalNav(calBtn.dataset.cal); if (window.innerWidth < 960) { ui.sidebar = false; render(); } return; }
       const item = e.target.closest(".sb-item");
