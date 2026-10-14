@@ -34,7 +34,7 @@ class HexisDataProviderService : BridgeProviderService() {
         BridgeDispatcher(
             handlers = listOf(
                 DataCapabilityHandler(
-                    source = RepositoryDataSource(repo),
+                    source = RepositoryDataSource(repo, applicationContext),
                     audit = { callerPkg, detail, outcome ->
                         auditScope.launch {
                             runCatching { registry.audit(callerPkg, "data", detail, outcome) }

@@ -6,7 +6,11 @@ covered current (2024–2026) best practice and real implementations (PlainApp �
 and read; Immich, Home Assistant, Nextcloud, Jellyfin, Syncthing; and the desktop-web of TickTick, Todoist,
 Microsoft To Do, Google Calendar/Tasks, Notion, Obsidian, Google Keep, Morgen).
 
-Status: **R1 + R2 shipped in web-bridge 0.2.0.** R3 (UI) is the blueprint below.
+Status: **R1 + R2 shipped in web-bridge 0.2.0.** R3 (desktop UI) is building in stages:
+**R3a** (shell + Tasks List/Board/Matrix + right inspector + `tasks.lists`) shipped in **0.3.0**;
+**R3b** (Calendar Month/Week/Agenda + event create/edit/delete, `calendar.occurrences`/`calendar.calendars`
+reads and `calendar` writes) shipped in **0.3.1**. R3c (Notes) / R3d (Time + Habits) / R3e (palette + polish)
+remain. Blueprint below.
 
 ---
 
@@ -63,7 +67,7 @@ racing the prewarm against an immediate start *doubled* engine-create), fail-fas
 
 ---
 
-## R3 — Desktop-grade web UI (blueprint, not yet built)
+## R3 — Desktop-grade web UI (staged build; R3a + R3b shipped)
 
 Today's SPA is a single 760 px column with five top tabs and a modal for every edit — a "stretched phone
 list". Every reference app splits the width into panes. Target shell (TickTick / Todoist / MS-To-Do model):
@@ -90,8 +94,11 @@ list". Every reference app splits the width into panes. Target shell (TickTick /
   (`Q`/`A`) with `!due *star #list` tokens; multi-select bulk bar (reuse existing `data-bulk`).
 - **Notes**: Google-Keep **masonry card grid** (pinned group separated, attachment thumbnails) + an
   Obsidian-style markdown editor in the inspector/full width.
-- **Calendar**: **Month grid / Week-Day time-grid / Agenda** switcher (reuse current list as Agenda), a
-  mini-month navigator in the sidebar, event popovers, and tasks-with-due-dates overlaid (Morgen-style).
+- **Calendar** ✅ (R3b): **Month grid / Week time-grid / Agenda** switcher with prev/next/today nav; the week
+  grid packs overlapping events into side-by-side lanes and draws a live "now" line; create/edit/delete events
+  in the right inspector (click a day/slot to seed a new one); recurring events show a ↻ chip and keep their
+  series timing (text edits only from the web — rescheduling a series stays a phone action); calendars legend
+  in the sidebar. *Still to do: a mini-month navigator and tasks-with-due-dates overlaid (Morgen-style).*
 - **Time** → a **report dashboard**: summary stat tiles + a bar chart (per `dataviz` conventions) + the
   detail table.
 - **Habits** → a **habit × day heatmap** (or card grid with streaks) instead of a flat list.

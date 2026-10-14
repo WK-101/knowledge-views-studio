@@ -83,7 +83,7 @@
 
   // ============================================================== state
   const DOMAINS = ["tasks", "notes", "calendar", "time", "habits"];
-  const state = { tasks: [], lists: [], notes: [], calendar: [], time: [], habits: [] };
+  const state = { tasks: [], lists: [], notes: [], calendar: [], calendars: [], time: [], habits: [] };
   let seen = {};
   let readOnly = false;
 
@@ -91,6 +91,9 @@
     domain: "tasks",
     taskView: "list", // list | board | matrix
     taskFilter: { kind: "smart", value: "all" }, // smart:(all|today|upcoming|starred|completed) | list:<id>
+    calView: "month", // month | week | agenda
+    calAnchor: Date.now(), // the moment the calendar is centred on (in-memory)
+    draft: null, // a seed for a new item (e.g. a clicked calendar slot)
     sel: null, // { domain, id } for the inspector
     sidebar: true,
   };
@@ -99,6 +102,7 @@
       const s = JSON.parse(localStorage.getItem("hexis_ui") || "{}");
       if (DOMAINS.includes(s.domain)) ui.domain = s.domain;
       if (["list", "board", "matrix"].includes(s.taskView)) ui.taskView = s.taskView;
+      if (["month", "week", "agenda"].includes(s.calView)) ui.calView = s.calView;
       if (s.taskFilter && s.taskFilter.kind) ui.taskFilter = s.taskFilter;
       if (typeof s.sidebar === "boolean") ui.sidebar = s.sidebar;
     } catch (_e) { /* defaults */ }
@@ -106,7 +110,7 @@
   function saveUi() {
     try {
       localStorage.setItem("hexis_ui", JSON.stringify({
-        domain: ui.domain, taskView: ui.taskView, taskFilter: ui.taskFilter, sidebar: ui.sidebar,
+        domain: ui.domain, taskView: ui.taskView, calView: ui.calView, taskFilter: ui.taskFilter, sidebar: ui.sidebar,
       }));
     } catch (_e) { /* private mode */ }
   }
@@ -153,6 +157,45 @@
     const n = (Number(color) >>> 0) & 0xffffff;
     return "#" + n.toString(16).padStart(6, "0");
   }
+  function toTimeInput(ms) {
+    if (!ms) return "";
+    const d = new Date(ms), p = (n) => String(n).padStart(2, "0");
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function fromDateTimeInput(dateV, timeV) {
+    if (!dateV) return null;
+    const [y, m, d] = dateV.split("-").map(Number);
+    const [hh, mm] = (timeV || "00:00").split(":").map(Number);
+    return new Date(y, m - 1, d, hh || 0, mm || 0, 0, 0).getTime();
+  }
+
+  // ---- calendar date math (week starts Sunday) ---------------------------
+  const WEEK_START = 0;
+  function startOfDay(ms) { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  function addDays(ms, n) { const d = new Date(ms); d.setDate(d.getDate() + n); return d.getTime(); }
+  function sameDay(a, b) { return startOfDay(a) === startOfDay(b); }
+  function weekStart(ms) {
+    const d = new Date(startOfDay(ms));
+    const back = (d.getDay() - WEEK_START + 7) % 7;
+    return addDays(d.getTime(), -back);
+  }
+  function monthGrid(anchorMs) {
+    const a = new Date(anchorMs);
+    const monthStart = new Date(a.getFullYear(), a.getMonth(), 1).getTime();
+    const gridStart = weekStart(monthStart);
+    const gridEnd = addDays(gridStart, 42); // 6 weeks
+    return { gridStart, gridEnd, month: a.getMonth(), year: a.getFullYear() };
+  }
+  function calWindow() {
+    if (ui.calView === "month") { const g = monthGrid(ui.calAnchor); return { from: g.gridStart, to: g.gridEnd }; }
+    if (ui.calView === "week") { const s = weekStart(ui.calAnchor); return { from: s, to: addDays(s, 7) }; }
+    const from = startOfDay(ui.calAnchor); return { from, to: addDays(from, 60) }; // agenda: 60-day horizon
+  }
+  function calColor(e) {
+    if (e && e.colorArgb != null) return argb(e.colorArgb);
+    const c = state.calendars.find((x) => x.id === (e && e.calendarId));
+    return (c && argb(c.colorArgb)) || "var(--accent)";
+  }
   function dueClass(t) {
     if (!t.dueDate || t.completed) return "";
     if (t.dueDate < startOfToday()) return "overdue";
@@ -182,6 +225,13 @@
     if (d === "tasks") {
       const [tasks, lists] = await Promise.all([query("tasks", "list"), query("tasks", "lists").catch(() => [])]);
       state.tasks = tasks; state.lists = lists;
+    } else if (d === "calendar") {
+      const w = calWindow();
+      const [events, cals] = await Promise.all([
+        query("calendar", "occurrences", { paramsJson: JSON.stringify({ from: w.from, to: w.to }) }),
+        query("calendar", "calendars").catch(() => []),
+      ]);
+      state.calendar = events; state.calendars = cals;
     } else {
       state[d] = await query(d, "list");
     }
@@ -222,13 +272,27 @@
     const sb = el("sidebar");
     if (ui.domain === "tasks") { sb.innerHTML = tasksSidebar(); return; }
     if (ui.domain === "notes") { sb.innerHTML = simpleSidebar("Notes", [["all", "All notes"]], "all"); return; }
-    if (ui.domain === "calendar") { sb.innerHTML = simpleSidebar("Calendar", [["upcoming", "Upcoming"]], "upcoming"); return; }
+    if (ui.domain === "calendar") { sb.innerHTML = calendarSidebar(); return; }
     if (ui.domain === "time") { sb.innerHTML = simpleSidebar("Time", [["recent", "Recent"]], "recent"); return; }
     if (ui.domain === "habits") { sb.innerHTML = simpleSidebar("Habits", [["all", "Today"]], "all"); return; }
   }
   function simpleSidebar(title, items, active) {
     return '<h2 class="sb-title">' + esc(title) + "</h2><ul class=\"sb-list\">" +
       items.map((i) => '<li class="sb-item active">' + esc(i[1]) + "</li>").join("") + "</ul>";
+  }
+  function calendarSidebar() {
+    const d = new Date(ui.calAnchor);
+    const big = '<div class="cal-today" data-cal="today">' +
+      '<span class="cal-today-dow">' + d.toLocaleDateString(undefined, { weekday: "long" }) + "</span>" +
+      '<span class="cal-today-day">' + d.getDate() + "</span>" +
+      '<span class="cal-today-mon">' + d.toLocaleDateString(undefined, { month: "long", year: "numeric" }) + "</span></div>";
+    const newBtn = readOnly ? "" : '<button class="btn primary block" data-cal="new">New event</button>';
+    const legend = state.calendars.length
+      ? '<h3 class="sb-sub">Calendars</h3><ul class="sb-list">' + state.calendars.map((c) =>
+        '<li class="sb-item static"><span class="sb-ico"><span class="sb-dot" style="background:' + (argb(c.colorArgb) || "var(--accent)") + '"></span></span>' +
+        '<span class="sb-label">' + esc(c.name) + "</span>" + (c.isDefault ? '<span class="sb-count">default</span>' : "") + "</li>").join("") + "</ul>"
+      : "";
+    return '<h2 class="sb-title">Calendar</h2>' + big + newBtn + legend;
   }
   function tasksSidebar() {
     const f = ui.taskFilter;
@@ -270,7 +334,7 @@
     body.onclick = null;
     if (ui.domain === "tasks") { head.innerHTML = tasksHead(); body.innerHTML = tasksMain(); wireTasksMain(); }
     else if (ui.domain === "notes") { head.innerHTML = headTitle("Notes", readOnly ? "" : '<button class="btn primary" data-new="note">New note</button>'); body.innerHTML = notesMain(); body.onclick = onNotesClick; }
-    else if (ui.domain === "calendar") { head.innerHTML = headTitle("Calendar", ""); body.innerHTML = calendarMain(); }
+    else if (ui.domain === "calendar") { head.innerHTML = calendarHead(); body.innerHTML = calendarMain(); wireCalendar(); }
     else if (ui.domain === "time") { head.innerHTML = headTitle("Time", ""); body.innerHTML = timeMain(); }
     else if (ui.domain === "habits") { head.innerHTML = headTitle("Habits", ""); body.innerHTML = habitsMain(); }
     const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
@@ -396,19 +460,173 @@
     }).join("") + "</div>";
   }
 
-  // ---- Calendar / Time / Habits (read lists for R3a) ---------------------
+  // ---- Calendar (month / week / agenda + create/edit/delete) -------------
+  function calendarHead() {
+    const views = [["month", "Month"], ["week", "Week"], ["agenda", "Agenda"]];
+    const seg = views.map((v) => '<button class="seg' + (ui.calView === v[0] ? " on" : "") + '" data-calview="' + v[0] + '">' + v[1] + "</button>").join("");
+    const nav = '<div class="cal-nav"><button class="icon-btn" data-cal="prev" title="Previous">&#x2039;</button>' +
+      '<button class="btn ghost" data-cal="jump-today">Today</button>' +
+      '<button class="icon-btn" data-cal="next" title="Next">&#x203A;</button></div>';
+    return '<button class="icon-btn sb-toggle" id="sbToggle" title="Toggle sidebar">&#9776;</button>' +
+      '<h1 class="main-title">' + esc(calTitle()) + "</h1>" + nav +
+      '<div class="segmented">' + seg + "</div><span class=\"head-spacer\"></span>" +
+      (readOnly ? "" : '<button class="btn primary" data-cal="new">New event</button>');
+  }
+  function calTitle() {
+    const a = new Date(ui.calAnchor);
+    if (ui.calView === "month") return a.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    if (ui.calView === "week") {
+      const s = new Date(weekStart(ui.calAnchor)), e = new Date(addDays(s.getTime(), 6));
+      const sameMonth = s.getMonth() === e.getMonth();
+      const sTxt = s.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+      const eTxt = e.toLocaleDateString(undefined, sameMonth ? { day: "numeric", year: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+      return sTxt + " – " + eTxt;
+    }
+    return "Agenda";
+  }
   function calendarMain() {
+    if (ui.calView === "month") return monthView();
+    if (ui.calView === "week") return weekView();
+    return agendaView();
+  }
+
+  // Events (occurrences) that intersect a given day.
+  function eventsOnDay(dayMs) {
+    const d0 = startOfDay(dayMs), d1 = addDays(d0, 1);
+    return state.calendar.filter((e) => (e.startMillis < d1) && ((e.endMillis || e.startMillis) >= d0 || sameDay(e.startMillis, d0)))
+      .sort((a, b) => (a.allDay === b.allDay ? a.startMillis - b.startMillis : (a.allDay ? -1 : 1)));
+  }
+  function eChip(e, withTime) {
+    const t = e.allDay ? "" : (withTime ? fmtTime(e.startMillis) + " " : "");
+    return '<button class="echip" data-id="' + esc(e.id) + '" style="--ec:' + calColor(e) + '" title="' + esc(e.title || "") + '">' +
+      '<span class="echip-dot"></span><span class="echip-t">' + esc(t) + esc(e.title || "Untitled") + "</span>" +
+      (e.recurring ? '<span class="echip-r">&#x21BB;</span>' : "") + "</button>";
+  }
+
+  function monthView() {
+    const g = monthGrid(ui.calAnchor);
+    const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const head = '<div class="mv-dow">' + dow.map((d) => "<span>" + d + "</span>").join("") + "</div>";
+    const today0 = startOfToday();
+    let cells = "";
+    for (let i = 0; i < 42; i++) {
+      const day = addDays(g.gridStart, i);
+      const dd = new Date(day);
+      const inMonth = dd.getMonth() === g.month;
+      const isToday = day === today0;
+      const evs = eventsOnDay(day);
+      const shown = evs.slice(0, 4), extra = evs.length - shown.length;
+      cells += '<div class="mv-cell' + (inMonth ? "" : " dim") + (isToday ? " today" : "") + '" data-day="' + day + '">' +
+        '<div class="mv-daynum">' + dd.getDate() + "</div>" +
+        '<div class="mv-evs">' + shown.map((e) => eChip(e, true)).join("") +
+        (extra > 0 ? '<span class="mv-more">+' + extra + " more</span>" : "") + "</div></div>";
+    }
+    return head + '<div class="mv-grid">' + cells + "</div>";
+  }
+
+  function weekView() {
+    const ws = weekStart(ui.calAnchor);
+    const days = []; for (let i = 0; i < 7; i++) days.push(addDays(ws, i));
+    const today0 = startOfToday();
+    const HOUR = 44; // px per hour
+    // Column headers
+    const heads = days.map((day) => {
+      const d = new Date(day);
+      return '<div class="wv-colh' + (day === today0 ? " today" : "") + '" data-day="' + day + '">' +
+        '<span class="wv-dow">' + d.toLocaleDateString(undefined, { weekday: "short" }) + "</span>" +
+        '<span class="wv-dnum">' + d.getDate() + "</span></div>";
+    }).join("");
+    // All-day row
+    const allDayCells = days.map((day) => {
+      const evs = eventsOnDay(day).filter((e) => e.allDay);
+      return '<div class="wv-allday-cell" data-day="' + day + '">' + evs.map((e) => eChip(e, false)).join("") + "</div>";
+    }).join("");
+    // Hour axis
+    let axis = "";
+    for (let h = 0; h < 24; h++) axis += '<div class="wv-hr" style="height:' + HOUR + 'px"><span>' + hourLabel(h) + "</span></div>";
+    // Day columns with timed events
+    const cols = days.map((day) => {
+      const d0 = startOfDay(day), d1 = addDays(d0, 1);
+      const timed = eventsOnDay(day).filter((e) => !e.allDay);
+      const laid = layoutDay(timed, d0, d1);
+      const blocks = laid.map((p) => {
+        const e = p.e;
+        const top = (p.top / 60) * HOUR, h = Math.max(16, (p.dur / 60) * HOUR);
+        return '<button class="wv-ev" data-id="' + esc(e.id) + '" style="top:' + top + "px;height:" + h + "px;left:" +
+          (p.lane * (100 / p.lanes)).toFixed(2) + "%;width:" + (100 / p.lanes).toFixed(2) + "%;--ec:" + calColor(e) + '">' +
+          '<span class="wv-ev-t">' + esc(e.title || "Untitled") + "</span>" +
+          '<span class="wv-ev-m">' + esc(fmtTime(e.startMillis)) + "</span></button>";
+      }).join("");
+      const nowLine = (day === today0) ? nowIndicator(HOUR) : "";
+      return '<div class="wv-col" data-day="' + day + '" style="height:' + (24 * HOUR) + 'px">' + hourLines(HOUR) + nowLine + blocks + "</div>";
+    }).join("");
+    return '<div class="wv">' +
+      '<div class="wv-head"><div class="wv-corner"></div>' + heads + "</div>" +
+      '<div class="wv-alldays"><div class="wv-allday-label">all-day</div>' + allDayCells + "</div>" +
+      '<div class="wv-body" id="wvBody"><div class="wv-axis">' + axis + "</div>" + cols + "</div></div>";
+  }
+  function hourLabel(h) {
+    if (h === 0) return "12 AM"; if (h === 12) return "12 PM";
+    return (h < 12 ? h + " AM" : (h - 12) + " PM");
+  }
+  function hourLines(HOUR) { let s = ""; for (let h = 0; h < 24; h++) s += '<div class="wv-line" style="top:' + (h * HOUR) + 'px"></div>'; return s; }
+  function nowIndicator(HOUR) {
+    const now = new Date(); const mins = now.getHours() * 60 + now.getMinutes();
+    return '<div class="wv-now" style="top:' + ((mins / 60) * HOUR).toFixed(1) + 'px"></div>';
+  }
+  // Greedy lane packing so overlapping events sit side-by-side.
+  function layoutDay(events, d0, d1) {
+    const items = events.map((e) => {
+      const s = Math.max(e.startMillis, d0), en = Math.min(e.endMillis || (e.startMillis + 3600000), d1);
+      return { e, top: (s - d0) / 60000, dur: Math.max(15, (en - s) / 60000) };
+    }).sort((a, b) => a.top - b.top);
+    // cluster by overlap, assign lanes within each cluster
+    let i = 0;
+    while (i < items.length) {
+      let j = i, clusterEnd = items[i].top + items[i].dur;
+      const cluster = [items[i]];
+      while (j + 1 < items.length && items[j + 1].top < clusterEnd) {
+        j++; cluster.push(items[j]); clusterEnd = Math.max(clusterEnd, items[j].top + items[j].dur);
+      }
+      const laneEnds = [];
+      cluster.forEach((it) => {
+        let lane = laneEnds.findIndex((end) => end <= it.top);
+        if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+        laneEnds[lane] = it.top + it.dur; it.lane = lane;
+      });
+      const lanes = laneEnds.length;
+      cluster.forEach((it) => { it.lanes = lanes; });
+      i = j + 1;
+    }
+    return items;
+  }
+
+  function agendaView() {
     const now = Date.now();
-    const up = state.calendar.filter((e) => (e.endMillis || e.startMillis) >= now - 12 * 3600000).slice(0, 300);
-    if (!up.length) return emptyState("No upcoming events", "");
-    return '<ul class="elist">' + up.map((e) => {
-      const when = e.allDay ? fmtDate(e.startMillis) + " · all day" : fmtDateTime(e.startMillis) + "–" + fmtTime(e.endMillis);
-      const dot = argb(e.colorArgb) || "var(--accent)";
-      return '<li class="erow"><span class="cdot" style="background:' + dot + '"></span>' +
-        '<span class="einfo"><span class="etitle">' + esc(e.title || "Untitled") + "</span>" +
-        '<span class="emeta">' + esc(when) + (e.location ? " · " + esc(e.location) : "") + (e.calendarName ? " · " + esc(e.calendarName) : "") + "</span></span>" +
-        (e.recurring ? '<span class="chip">&#x21BB;</span>' : "") + "</li>";
-    }).join("") + "</ul>";
+    const evs = state.calendar.filter((e) => (e.endMillis || e.startMillis) >= startOfToday()).sort((a, b) => a.startMillis - b.startMillis);
+    if (!evs.length) return emptyState("Nothing scheduled", readOnly ? "" : "Create an event to see it here.");
+    // group by day
+    const groups = [];
+    let cur = null;
+    evs.forEach((e) => {
+      const d0 = startOfDay(e.startMillis);
+      if (!cur || cur.day !== d0) { cur = { day: d0, items: [] }; groups.push(cur); }
+      cur.items.push(e);
+    });
+    return '<div class="agenda">' + groups.map((g) => {
+      const d = new Date(g.day);
+      const isToday = g.day === startOfToday();
+      const label = (isToday ? "Today · " : "") + d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
+      return '<section class="ag-day"><h3 class="ag-h' + (isToday ? " today" : "") + '">' + esc(label) + "</h3>" +
+        '<ul class="ag-list">' + g.items.map((e) => {
+          const when = e.allDay ? "All day" : fmtTime(e.startMillis) + " – " + fmtTime(e.endMillis);
+          return '<li class="ag-row" data-id="' + esc(e.id) + '"><span class="ag-time">' + esc(when) + "</span>" +
+            '<span class="ag-bar" style="background:' + calColor(e) + '"></span>' +
+            '<span class="ag-main"><span class="ag-title">' + esc(e.title || "Untitled") + (e.recurring ? ' <span class="chip">&#x21BB;</span>' : "") + "</span>" +
+            (e.location || e.calendarName ? '<span class="ag-meta">' + esc([e.location, e.calendarName].filter(Boolean).join(" · ")) + "</span>" : "") +
+            "</span></li>";
+        }).join("") + "</ul></section>";
+    }).join("") + "</div>";
   }
   function timeMain() {
     const entries = state.time.slice(0, 300);
@@ -442,7 +660,7 @@
 
   // ============================================================== inspector
   function openInspector(domain, id) { ui.sel = { domain, id }; app().dataset.inspector = "open"; el("inspector").hidden = false; renderInspector(); if (window.innerWidth < 1100) el("scrim").hidden = false; }
-  function closeInspector() { ui.sel = null; app().dataset.inspector = "closed"; el("inspector").hidden = true; el("scrim").hidden = true; document.querySelectorAll(".trow.sel,.ncard.sel").forEach((n) => n.classList.remove("sel")); }
+  function closeInspector() { ui.sel = null; ui.draft = null; app().dataset.inspector = "closed"; el("inspector").hidden = true; el("scrim").hidden = true; document.querySelectorAll(".trow.sel,.ncard.sel").forEach((n) => n.classList.remove("sel")); }
   function renderInspector() {
     if (!ui.sel) return;
     const ins = el("inspector");
@@ -456,6 +674,11 @@
       if (!n) { closeInspector(); return; }
       ins.innerHTML = noteInspector(n);
       wireNoteInspector(n);
+    } else if (ui.sel.domain === "calendar") {
+      const ev = ui.sel.id === "__new__" ? draftEvent() : state.calendar.find((x) => x.id === ui.sel.id);
+      if (!ev) { closeInspector(); return; }
+      ins.innerHTML = eventInspector(ev);
+      wireEventInspector(ev);
     }
   }
   function inspectorHead(title) {
@@ -653,10 +876,150 @@
     });
   }
 
+  // ---- calendar events ---------------------------------------------------
+  function wireCalendar() {
+    const sbt = el("sbToggle"); if (sbt) sbt.onclick = toggleSidebar;
+    const head = el("mainHead");
+    head.querySelectorAll(".seg[data-calview]").forEach((b) => b.onclick = () => { ui.calView = b.dataset.calview; saveUi(); reloadThenRender("calendar"); });
+    head.querySelectorAll("[data-cal]").forEach((b) => b.onclick = () => onCalNav(b.dataset.cal));
+    const body = el("mainBody");
+    body.onclick = onCalendarClick;
+    if (ui.calView === "week") { const wv = el("wvBody"); if (wv) wv.scrollTop = 7 * 44 - 14; }
+  }
+  function onCalNav(cmd) {
+    if (cmd === "new") { newEvent(null); return; }
+    if (cmd === "prev" || cmd === "next") {
+      const dir = cmd === "next" ? 1 : -1;
+      if (ui.calView === "month") { const a = new Date(ui.calAnchor); a.setDate(1); a.setMonth(a.getMonth() + dir); ui.calAnchor = a.getTime(); }
+      else if (ui.calView === "week") ui.calAnchor = addDays(ui.calAnchor, 7 * dir);
+      else ui.calAnchor = addDays(ui.calAnchor, 14 * dir);
+      reloadThenRender("calendar");
+    } else if (cmd === "jump-today" || cmd === "today") {
+      ui.calAnchor = Date.now(); reloadThenRender("calendar");
+    }
+  }
+  async function reloadThenRender(d) {
+    try { await reloadDomain(d); } catch (e) { toast(e.message); }
+    render();
+  }
+  function onCalendarClick(e) {
+    const more = e.target.closest(".mv-more");
+    if (more) { const cell = more.closest("[data-day]"); if (cell) { ui.calView = "agenda"; ui.calAnchor = Number(cell.dataset.day); saveUi(); reloadThenRender("calendar"); } return; }
+    const chip = e.target.closest(".echip,.wv-ev,.ag-row");
+    if (chip && chip.dataset.id) { openInspector("calendar", chip.dataset.id); return; }
+    if (readOnly) return;
+    const dayEl = e.target.closest("[data-day]");
+    if (!dayEl) return;
+    const day = Number(dayEl.dataset.day);
+    if (dayEl.classList.contains("wv-col")) {
+      const rect = dayEl.getBoundingClientRect();
+      const hour = Math.max(0, Math.min(22, Math.floor((e.clientY - rect.top) / 44)));
+      const start = new Date(day); start.setHours(hour, 0, 0, 0);
+      newEvent({ start: start.getTime(), end: start.getTime() + 3600000, allDay: false });
+    } else if (dayEl.classList.contains("wv-allday-cell")) {
+      newEvent({ day, allDay: true });
+    } else {
+      newEvent({ day });
+    }
+  }
+  function newEvent(seed) { ui.draft = seed || {}; openInspector("calendar", "__new__"); }
+  function draftEvent() {
+    const s = ui.draft || {};
+    const allDay = !!s.allDay;
+    let start, end;
+    if (s.start) { start = s.start; end = s.end || (s.start + 3600000); }
+    else {
+      const base = s.day != null ? s.day : ui.calAnchor;
+      const d = new Date(base);
+      if (allDay) { d.setHours(0, 0, 0, 0); start = d.getTime(); end = start; }
+      else { d.setHours(9, 0, 0, 0); start = d.getTime(); end = start + 3600000; }
+    }
+    const defCal = (state.calendars.find((c) => c.isDefault) || state.calendars[0] || {}).id || "";
+    return { id: "", title: "", calendarId: defCal, location: "", notes: "", startMillis: start, endMillis: end, allDay: allDay, recurring: false };
+  }
+  function eventInspector(e) {
+    const ro = readOnly ? " disabled" : "";
+    const isNew = !e.id;
+    const recurring = !!e.recurring;
+    const timeRo = (readOnly || recurring) ? " disabled" : "";
+    const calOpts = state.calendars.map((c) =>
+      '<option value="' + esc(c.id) + '"' + (c.id === e.calendarId ? " selected" : "") + ">" + esc(c.name) + "</option>").join("");
+    const hid = e.allDay ? " hidden" : "";
+    return inspectorHead(isNew ? "New event" : "Event") +
+      '<div class="ins-body">' +
+      '<label class="fld"><span>Title</span><input id="iTitle" type="text" value="' + esc(e.title || "") + '"' + ro + "></label>" +
+      (state.calendars.length ? '<label class="fld"><span>Calendar</span><select id="iCal"' + ro + ">" + calOpts + "</select></label>" : "") +
+      (recurring ? '<p class="ins-note">&#x21BB; Repeats — text changes save to the whole series. Edit the times on your phone.</p>' : "") +
+      '<label class="fld chk"><input id="iAllDay" type="checkbox"' + (e.allDay ? " checked" : "") + timeRo + "> All-day</label>" +
+      '<div class="fld-row">' +
+      '<label class="fld"><span>Starts</span><input id="iSDate" type="date" value="' + esc(toDateInput(e.startMillis)) + '"' + timeRo + "></label>" +
+      '<label class="fld time' + hid + '" id="iSTimeWrap"><span>at</span><input id="iSTime" type="time" value="' + esc(toTimeInput(e.startMillis)) + '"' + timeRo + "></label>" +
+      "</div>" +
+      '<div class="fld-row">' +
+      '<label class="fld"><span>Ends</span><input id="iEDate" type="date" value="' + esc(toDateInput(e.endMillis || e.startMillis)) + '"' + timeRo + "></label>" +
+      '<label class="fld time' + hid + '" id="iETimeWrap"><span>at</span><input id="iETime" type="time" value="' + esc(toTimeInput(e.endMillis || e.startMillis)) + '"' + timeRo + "></label>" +
+      "</div>" +
+      '<label class="fld"><span>Location</span><input id="iLoc" type="text" value="' + esc(e.location || "") + '"' + ro + "></label>" +
+      '<label class="fld grow"><span>Notes</span><textarea id="iNotes" rows="4"' + ro + ">" + esc(e.notes || "") + "</textarea></label>" +
+      (readOnly ? "" :
+        '<div class="ins-actions">' + (isNew ? "" : '<button class="btn danger" id="iDelete">Delete</button>') +
+        '<span class="spacer"></span><button class="btn primary" id="iSave">Save</button></div>') +
+      "</div>";
+  }
+  function wireEventInspector(e) {
+    el("insClose").onclick = closeInspector;
+    if (readOnly) return;
+    const recurring = !!e.recurring;
+    const allDayBox = el("iAllDay");
+    if (allDayBox && !recurring) allDayBox.onchange = () => {
+      const on = allDayBox.checked;
+      el("iSTimeWrap").classList.toggle("hidden", on);
+      el("iETimeWrap").classList.toggle("hidden", on);
+    };
+    el("iSave").onclick = async () => {
+      const title = el("iTitle").value.trim();
+      if (!title) { toast("Title can't be empty"); return; }
+      const isAllDay = allDayBox ? allDayBox.checked : e.allDay;
+      let startMillis, endMillis;
+      if (recurring) { startMillis = e.startMillis; endMillis = e.endMillis; }
+      else if (isAllDay) {
+        startMillis = fromDateTimeInput(el("iSDate").value, "00:00");
+        endMillis = fromDateTimeInput(el("iEDate").value || el("iSDate").value, "00:00");
+      } else {
+        startMillis = fromDateTimeInput(el("iSDate").value, el("iSTime").value);
+        endMillis = fromDateTimeInput(el("iEDate").value || el("iSDate").value, el("iETime").value);
+        if (startMillis && endMillis && endMillis <= startMillis) endMillis = startMillis + 3600000;
+      }
+      const now = Date.now();
+      const payload = {
+        id: e.id, title,
+        calendarId: el("iCal") ? el("iCal").value : (e.calendarId || ""),
+        location: el("iLoc").value, notes: el("iNotes").value,
+        startMillis: startMillis || now, endMillis: endMillis || (startMillis || now) + 3600000,
+        allDay: isAllDay,
+      };
+      try {
+        const res = await mutate("calendar", "upsert", payload);
+        ui.draft = null;
+        await reloadDomain("calendar");
+        const newId = res && res.id ? res.id : e.id;
+        ui.sel = newId ? { domain: "calendar", id: newId } : null;
+        render(); toast("Saved");
+      } catch (err) { toast(err.message); }
+    };
+    const del = el("iDelete");
+    if (del) del.onclick = async () => {
+      if (!confirm(recurring ? "Delete the whole repeating series?" : "Delete this event?")) return;
+      try { await mutate("calendar", "delete", { id: e.id }); closeInspector(); await reloadDomain("calendar"); render(); } catch (err) { toast(err.message); }
+    };
+  }
+
   function wireSidebar() {
     el("sidebar").addEventListener("click", (e) => {
+      const calBtn = e.target.closest("[data-cal]");
+      if (calBtn) { onCalNav(calBtn.dataset.cal); if (window.innerWidth < 960) { ui.sidebar = false; render(); } return; }
       const item = e.target.closest(".sb-item");
-      if (!item) return;
+      if (!item || item.classList.contains("static")) return;
       if (item.dataset.smart) { ui.taskFilter = { kind: "smart", value: item.dataset.smart }; }
       else if (item.dataset.list) { ui.taskFilter = { kind: "list", value: item.dataset.list }; }
       else return;

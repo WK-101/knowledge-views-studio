@@ -46,6 +46,16 @@ data class ListDto(
     val count: Int = 0,
 )
 
+/** An event calendar (for the web calendar picker + colour legend). [isDefault] marks the create target. */
+@Serializable
+data class CalendarDto(
+    val id: String,
+    val name: String,
+    val colorArgb: Long,
+    val visible: Boolean = true,
+    val isDefault: Boolean = false,
+)
+
 /** A calendar event, projected for display. [calendarName] is resolved from the owning calendar. */
 @Serializable
 data class EventDto(

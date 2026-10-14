@@ -41,6 +41,17 @@ object DataApi {
     /** List the task lists (names) for the sidebar (domain `tasks`, no params) → [ListDto][]. */
     const val OP_LISTS = "lists"
 
+    /** List the event calendars (for the web calendar picker + colour legend); domain `calendar` → [CalendarDto][]. */
+    const val OP_CALENDARS = "calendars"
+
+    /**
+     * Expand recurring events into concrete occurrences inside a window (domain `calendar`,
+     * params `{ "from": epochMillis, "to": epochMillis }`) → [EventDto][] whose `startMillis`/`endMillis`
+     * are the realised instance times and whose `id` is the owning (master) event — so a web edit/delete of
+     * an occurrence maps back to the series. This is how month/week/agenda views get the right dots.
+     */
+    const val OP_OCCURRENCES = "occurrences"
+
     /** List a note's attachment metadata (params `{ "id": noteId }`) → [AttachmentDto][]. */
     const val OP_ATTACHMENTS = "attachments"
 

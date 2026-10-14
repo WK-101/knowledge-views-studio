@@ -288,12 +288,14 @@ class ControlActivity : Activity() {
             toast(getString(R.string.err_core_missing))
             return
         }
+        // R3 — the desktop UI edits every domain, so request read+write across the board. The core still
+        // gates each op by the granted scope, and only implements the writes it chooses to expose.
         val scopes = listOf(
             BridgeScopes.DATA_TASKS_READ, BridgeScopes.DATA_TASKS_WRITE,
             BridgeScopes.DATA_NOTES_READ, BridgeScopes.DATA_NOTES_WRITE,
-            BridgeScopes.DATA_CALENDAR_READ, // calendar / time / habits are read-only companions (W3)
-            BridgeScopes.DATA_TIME_READ,
-            BridgeScopes.DATA_HABITS_READ,
+            BridgeScopes.DATA_CALENDAR_READ, BridgeScopes.DATA_CALENDAR_WRITE,
+            BridgeScopes.DATA_TIME_READ, BridgeScopes.DATA_TIME_WRITE,
+            BridgeScopes.DATA_HABITS_READ, BridgeScopes.DATA_HABITS_WRITE,
         ).joinToString(",")
         val intent = Intent(DataConsent.ACTION).apply {
             setPackage(provider.packageName)

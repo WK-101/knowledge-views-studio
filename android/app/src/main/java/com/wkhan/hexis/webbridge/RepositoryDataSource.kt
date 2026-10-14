@@ -1,8 +1,10 @@
 package com.wkhan.hexis.webbridge
 
+import android.content.Context
 import com.wkhan.hexis.bridge.BridgeCodec
 import com.wkhan.hexis.bridge.data.AttachmentData
 import com.wkhan.hexis.bridge.data.AttachmentDto
+import com.wkhan.hexis.bridge.data.CalendarDto
 import com.wkhan.hexis.bridge.data.DataApi
 import com.wkhan.hexis.bridge.data.DataMutation
 import com.wkhan.hexis.bridge.data.DataPage
@@ -15,9 +17,14 @@ import com.wkhan.hexis.bridge.data.NoteDto
 import com.wkhan.hexis.bridge.data.TaskDto
 import com.wkhan.hexis.bridge.data.TimeEntryDto
 import com.wkhan.hexis.data.AppRepository
+import com.wkhan.hexis.data.entity.EventCalendarEntity
+import com.wkhan.hexis.data.entity.EventEntity
 import com.wkhan.hexis.data.entity.ListEntity
 import com.wkhan.hexis.data.entity.NoteEntity
 import com.wkhan.hexis.data.entity.TaskEntity
+import com.wkhan.hexis.domain.AppClock
+import com.wkhan.hexis.domain.calendar.CalendarEngine
+import com.wkhan.hexis.reminders.AlarmScheduler
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.drop
@@ -34,15 +41,27 @@ import kotlinx.serialization.Serializable
  * cross the bridge — never the raw entity.
  */
 @Suppress("TooManyFunctions") // a facade: many small, single-purpose read/write/map helpers by design
-class RepositoryDataSource(private val repo: AppRepository) : DataSource {
+class RepositoryDataSource(
+    private val repo: AppRepository,
+    // The provider runs in the CORE process, so a Context is available: event writes (re)schedule or cancel
+    // alarms exactly like the on-device calendar. Nullable only so unit tests can construct without Android.
+    private val appContext: Context? = null,
+) : DataSource {
 
     override suspend fun query(query: DataQuery): DataPage = when (query.domain) {
         DataApi.DOMAIN_TASKS -> queryTasks(query)
         DataApi.DOMAIN_NOTES -> queryNotes(query)
-        DataApi.DOMAIN_CALENDAR -> queryListOnly(query) { allEventDtos() }
+        DataApi.DOMAIN_CALENDAR -> queryCalendar(query)
         DataApi.DOMAIN_TIME -> queryListOnly(query) { allTimeEntryDtos() }
         DataApi.DOMAIN_HABITS -> queryListOnly(query) { allHabitDtos() }
         else -> throw UnsupportedDomainException(query.domain)
+    }
+
+    private suspend fun queryCalendar(query: DataQuery): DataPage = when (query.op) {
+        DataApi.OP_LIST -> listPage(allEventDtos(), query) { it }
+        DataApi.OP_OCCURRENCES -> listPage(occurrenceDtos(query), query) { it }
+        DataApi.OP_CALENDARS -> listPage(calendarDtos(), query) { it }
+        else -> throw UnsupportedDomainException("calendar.${query.op}")
     }
 
     private suspend fun queryTasks(query: DataQuery): DataPage = when (query.op) {
@@ -127,6 +146,7 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
     override suspend fun mutate(mutation: DataMutation): DataResult = when (mutation.domain) {
         DataApi.DOMAIN_TASKS -> mutateTask(mutation)
         DataApi.DOMAIN_NOTES -> mutateNote(mutation)
+        DataApi.DOMAIN_CALENDAR -> mutateCalendar(mutation)
         else -> throw UnsupportedDomainException(mutation.domain)
     }
 
@@ -256,6 +276,90 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
         return ok(repo.upsertNote(entity))
     }
 
+    // ---- calendar writes (R3b) ----------------------------------------------------------------------
+    //
+    // Create / edit / delete an event in the active workspace. Deletes are a HARD delete (events have no
+    // Trash on-device either — the mobile delete is the same), so the web confirms first. Alarms are
+    // rescheduled/cancelled through the available Context so a web-created event still fires its alerts and
+    // an edited/deleted one never leaves a stale alarm pointing at the old time.
+    @Suppress("ReturnCount") // guard-clause early returns read clearest here
+    private suspend fun mutateCalendar(mutation: DataMutation): DataResult {
+        return when (mutation.op) {
+            DataApi.OP_UPSERT -> upsertEvent(decode<EventDto>(mutation.payloadJson) ?: return bad("invalid event"))
+            DataApi.OP_DELETE -> {
+                val id = decode<IdParam>(mutation.payloadJson)?.id ?: return bad("invalid id")
+                val existing = repo.eventById(id) ?: return bad("not_found")
+                if (!isEventInActiveWs(existing)) return bad("not_found") // default-deny across workspaces
+                appContext?.let { AlarmScheduler.cancelEventAlerts(it, existing) }
+                repo.deleteEvent(id)
+                ok(id)
+            }
+            else -> throw UnsupportedDomainException("calendar.${mutation.op}")
+        }
+    }
+
+    @Suppress("ReturnCount")
+    private suspend fun upsertEvent(dto: EventDto): DataResult {
+        if (dto.title.isBlank()) return bad("empty_title")
+        val existing = dto.id.takeIf { it.isNotBlank() }?.let { repo.eventById(it) }
+        if (existing != null && !isEventInActiveWs(existing)) return bad("not_found")
+        val calId = resolveCalendarId(dto.calendarId.takeIf { it.isNotBlank() } ?: existing?.calendarId)
+        val now = System.currentTimeMillis()
+        // Timed events need a positive duration; default a bare start to a one-hour block. All-day bounds are
+        // normalised to a floating UTC-midnight marker by the repository on write (Surfaced #3).
+        var start = dto.startMillis
+        var end = dto.endMillis
+        if (!dto.allDay && end <= start) end = start + ONE_HOUR_MS
+        val base = existing ?: EventEntity(
+            id = java.util.UUID.randomUUID().toString(),
+            calendarId = calId, title = dto.title.trim(),
+            startMillis = start, endMillis = end, createdAt = now, updatedAt = now,
+        )
+        // A recurring master's times/all-day define the whole series; the web only sends an occurrence's
+        // realised time, so rescheduling a series from here would silently move it. Keep the master's stored
+        // timing and let the web edit only text/calendar for recurring events (times stay a phone operation).
+        val isRecurring = existing?.rrule?.isNotBlank() == true
+        val entity = base.copy(
+            calendarId = calId,
+            title = dto.title.trim(),
+            location = dto.location.trim(),
+            notes = dto.notes.trim(),
+            startMillis = if (isRecurring) base.startMillis else start,
+            endMillis = if (isRecurring) base.endMillis else end,
+            allDay = if (isRecurring) base.allDay else dto.allDay,
+            colorArgb = dto.colorArgb,
+            updatedAt = now,
+        )
+        // Cancel the old schedule before moving times, then (re)schedule against the saved entity.
+        appContext?.let { ctx -> existing?.let { AlarmScheduler.cancelEventAlerts(ctx, it) } }
+        repo.upsertEvent(entity)
+        appContext?.let { ctx -> AlarmScheduler.scheduleEventAlerts(ctx, entity) }
+        return ok(entity.id)
+    }
+
+    private suspend fun isEventInActiveWs(e: EventEntity): Boolean {
+        val ws = repo.activeWs()
+        return repo.eventCalendarsOnce().any { it.id == e.calendarId && it.workspaceId == ws }
+    }
+
+    /** The calendar a web-created event lands in: the requested one (if in this workspace), else the
+     *  workspace default, else its first calendar — creating a "Personal" default if the workspace has none. */
+    private suspend fun resolveCalendarId(requested: String?): String {
+        val ws = repo.activeWs()
+        val wsCals = repo.eventCalendarsOnce().filter { it.workspaceId == ws }
+        requested?.takeIf { rid -> wsCals.any { it.id == rid } }?.let { return it }
+        wsCals.firstOrNull { it.isDefault }?.let { return it.id }
+        wsCals.firstOrNull()?.let { return it.id }
+        val id = java.util.UUID.randomUUID().toString()
+        repo.upsertEventCalendar(
+            EventCalendarEntity(
+                id = id, name = "Personal", colorArgb = DEFAULT_CAL_COLOR, isDefault = true,
+                orderIndex = 0, workspaceId = ws, createdAt = System.currentTimeMillis(),
+            ),
+        )
+        return id
+    }
+
     private inline fun <reified T> decode(json: String): T? =
         runCatching { BridgeCodec.decodeString<T>(json) }.getOrNull()
 
@@ -286,21 +390,35 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
         val calById = repo.eventCalendarsOnce().associateBy { it.id }
         return repo.wsEventsOnce()
             .sortedBy { it.startMillis }
-            .map { e ->
-                EventDto(
-                    id = e.id,
-                    title = e.title,
-                    calendarId = e.calendarId,
-                    calendarName = calById[e.calendarId]?.name.orEmpty(),
-                    location = e.location,
-                    notes = e.notes,
-                    startMillis = e.startMillis,
-                    endMillis = e.endMillis,
-                    allDay = e.allDay,
-                    recurring = e.rrule.isNotBlank(),
-                    colorArgb = e.colorArgb,
-                    linkedTaskId = e.linkedTaskId,
-                )
+            .map { e -> e.toDto(calById[e.calendarId]?.name.orEmpty()) }
+    }
+
+    /** The workspace's calendars, for the web legend + create picker (default first, then creation order). */
+    private suspend fun calendarDtos(): List<CalendarDto> {
+        val ws = repo.activeWs()
+        return repo.eventCalendarsOnce()
+            .filter { it.workspaceId == ws }
+            .sortedWith(compareByDescending<EventCalendarEntity> { it.isDefault }.thenBy { it.orderIndex })
+            .map { CalendarDto(id = it.id, name = it.name, colorArgb = it.colorArgb, visible = it.visible, isDefault = it.isDefault) }
+    }
+
+    /**
+     * Expand every (visible) event that intersects the requested window into concrete occurrences — this is
+     * what the month/week/agenda grids read, so a weekly event shows on every matching day, not just its
+     * first. Each occurrence keeps its master event's id so a web edit/delete maps back to the series.
+     */
+    private suspend fun occurrenceDtos(query: DataQuery): List<EventDto> {
+        val params = runCatching { BridgeCodec.decodeString<Map<String, Long>>(query.paramsJson) }.getOrNull().orEmpty()
+        val now = System.currentTimeMillis()
+        val from = params["from"] ?: (now - 7L * 86_400_000L)
+        val to = (params["to"] ?: (now + 45L * 86_400_000L)).coerceAtLeast(from)
+        val calById = repo.eventCalendarsOnce().associateBy { it.id }
+        val zone = AppClock.zone
+        return CalendarEngine.expand(repo.wsEventsOnce(), from, to, zone)
+            .sortedBy { it.startMillis }
+            .map { occ ->
+                occ.event.toDto(calById[occ.event.calendarId]?.name.orEmpty())
+                    .copy(startMillis = occ.startMillis, endMillis = occ.endMillis)
             }
     }
 
@@ -367,6 +485,8 @@ class RepositoryDataSource(private val repo: AppRepository) : DataSource {
 
     private companion object {
         const val MAX_PAGE = 500
+        const val ONE_HOUR_MS = 3_600_000L
+        const val DEFAULT_CAL_COLOR = 0xFF4F46E5L // indigo, matching the core's on-demand default calendar
     }
 }
 
@@ -411,4 +531,19 @@ private fun NoteEntity.toDto() = NoteDto(
     pinned = pinned,
     archived = archived,
     updatedAt = updatedAt,
+)
+
+private fun EventEntity.toDto(calendarName: String) = EventDto(
+    id = id,
+    title = title,
+    calendarId = calendarId,
+    calendarName = calendarName,
+    location = location,
+    notes = notes,
+    startMillis = startMillis,
+    endMillis = endMillis,
+    allDay = allDay,
+    recurring = rrule.isNotBlank(),
+    colorArgb = colorArgb,
+    linkedTaskId = linkedTaskId,
 )
