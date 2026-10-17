@@ -169,6 +169,7 @@
         <item quantity="one">%1$d call · made with Parley on %2$s</item>
         <item quantity="other">%1$d calls · made with Parley on %2$s</item>
     </plurals>
+    <string name="hist_pdf_covers">Covers: %1$s</string>
     <string name="label_date">Date</string>
     <string name="label_type">Type</string>
     <string name="hist_pdf_col_who">Name / number</string>

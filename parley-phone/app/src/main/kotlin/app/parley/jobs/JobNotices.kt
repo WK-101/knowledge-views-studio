@@ -114,9 +114,11 @@ object JobNotices {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         } ?: openParley(context)
+        // A file-ready job ("your export is ready") shows the export icon, like the folder-export notice; others keep Parley's.
+        val icon = if (f.opener != null) app.parley.ui.R.drawable.ic_stat_export else app.parley.ui.R.drawable.ic_stat_call
         // The message can name a file or a count, never a contact; still, the lock screen shows only that Parley is done.
         val b = PrivateNotice.builder(
-            context, NotificationChannels.JOBS, app.parley.ui.R.drawable.ic_stat_call, title, context.getString(R.string.job_public_text), f.message, tap,
+            context, NotificationChannels.JOBS, icon, title, context.getString(R.string.job_public_text), f.message, tap,
         )
         // Notifications not allowed: the work itself is done either way.
         PrivateNotice.post(context, NotificationIds.TAG_JOBS, (f.id % Int.MAX_VALUE).toInt(), b)

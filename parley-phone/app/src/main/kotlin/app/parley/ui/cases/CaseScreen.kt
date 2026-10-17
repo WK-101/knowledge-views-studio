@@ -93,7 +93,7 @@ fun CaseScreen(vm: AppViewModel, id: String, back: () -> Unit) {
     val barTint = TopAppBarDefaults.pinnedScrollBehavior()
     ParleyScaffold(
         snackbarHost = { ScreenSnackbarHost() },
-        topBar = { CaseTopBar(case, exportable = timeline != null, st, back, barTint) },
+        topBar = { CaseTopBar(case, exportable = case != null, st, back, barTint) },
     ) { p ->
         if (case == null) {
             Text(stringResource(R.string.case_gone), Modifier.padding(p).padding(Spacing.xl))
@@ -168,7 +168,8 @@ private fun CaseDialogs(vm: AppViewModel, case: CaseFile, timeline: CaseTimeline
             onDismiss = { st.stopping = false },
         )
     }
-    if (timeline != null && st.exporting) CaseExportSheet(vm, case, timeline) { st.exporting = false }
+    // The sheet opens on a single tap even before the timeline has loaded; the export job reads it if it must.
+    if (st.exporting) CaseExportSheet(vm, case, timeline) { st.exporting = false }
 }
 
 /** Where the case stands: one tap sets it (not during a duress unlock, which hides case files anyway). */

@@ -4157,3 +4157,28 @@ Automated: `HideNumberTest.for_outgoing_replaces_a_code_the_handle_still_carries
 1. "Call again showing my number" on a phone whose dialler keeps the dialled code on the call handle: place a hidden call that the other side refuses, then tap "Call again showing your number". It must go out with your number shown (the show code), not re-dial still hidden — the redial now takes any code the handle still carries back off before adding the one it needs (`HideNumber.forOutgoing`, used by `CallPlacer`). On a phone that strips the code itself, behaviour is unchanged. A plain "Call again" (a retry after a drop) repeats the original call as it was.
 2. Drag-to-reorder TalkBack checks (`ReorderSemanticsTest`) are steady under load: after an "earlier/later" action the test waits for the move on the suite's usual budget and lets it settle before reading the row, so a slow or loaded runner no longer times out on the favourites lists (which persist the new order off the main thread).
 
+## 57. A record you can show (7.3)
+
+### 57.7 Export as PDF builds on a single tap
+Automated: `CaseExportPdfTest.one_action_builds_the_report_without_a_preloaded_timeline`, `CaseExportPdfTest.reference_numbers_are_left_out_unless_chosen` (app).
+1. Open a case file that has several calls and notes (ideally one with a reference number). The moment the page appears — without waiting — tap "Export as PDF" (the top-bar icon). It must respond on the FIRST tap: the Share / Print sheet opens straight away, even while the timeline is still loading. (Before, the first tap did nothing and you had to tap it twice.)
+2. In the sheet tap "Share as PDF". A progress bar shows and the rows grey out while the file builds, so it can't be tapped again; when it is ready the sheet closes and the snackbar offers "Share". One tap built the PDF.
+3. Do the same for "Print": one tap builds, and the print dialog is offered from the snackbar.
+4. From Recents, open Export… and tap "PDF": the same single-tap build, with progress and no double-fire. Repeat for one person's call history. In every case leaving the screen while it builds doesn't stop it — the result still arrives.
+
+### 57.8 The call-history PDF says what it covers
+Automated: `ExportSummaryTest` (app).
+1. In Recents apply a filter (e.g. Missed · Last 7 days, or one SIM). Open Export… › PDF, let it build, and open the shared file.
+2. The header carries a totals line ("N calls · talk time · M missed") and a "Covers: …" line naming the filter (types · SIM · period or range). With nothing filtered there is no "Covers:" line.
+3. Export the same view as CSV, JSON and ICS: those files are unchanged — pure data, no summary or filter rows — so they still import and parse cleanly.
+4. Export one person's history as PDF: the totals line is there; there is no "Covers:" line (the file is already named for the person).
+
+### 57.9 Exports never leak sealed data
+1. With the vault locked, Settings › Contacts › Export contacts, turn on "Include private contacts": nothing private is written until you pass the vault unlock. Cancel the unlock and the plain file holds only visible and archived contacts.
+2. Case file › Export as PDF with "Include reference numbers" OFF: the PDF says how many reference numbers were left out but shows none of them. With it ON (after the confirm) the opened numbers appear. A plain export never carries a sealed value.
+3. Under a duress unlock: case files don't open (so no case PDF can be built), and "Include private contacts" is hidden — a plain export reveals nothing hidden. The encrypted backup stays the only artefact that carries sealed data.
+
+### 57.10 Export notifications look like Parley
+1. Leave Parley (press Home) and start an export or share so the result arrives as a notification ("…is ready"). The notice carries Parley's accent colour and a download/export icon, and tapping it still opens the share sheet or print dialog.
+2. Trigger the one-off "notes folder export replaced" housekeeping notice: it now uses the same export icon and accent colour (not the old "block" icon); its wording is unchanged, and on the lock screen the public version shows only the neutral title.
+
