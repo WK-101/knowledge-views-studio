@@ -66,11 +66,15 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
         }
     }
 
-    /** [number] with the hide/show code for the chosen SIM's country in front, or [number] as it is ([HideNumber]). */
+    /**
+     * [number] with the hide/show code for the chosen SIM's country in front, or [number] as it is ([HideNumber]). A
+     * redial ("Call again showing my number") can arrive with the previous call's code still on the handle where the
+     * platform kept it; [HideNumber.forOutgoing] takes it off first so the code we add is the one that goes out.
+     */
     private fun withCallerId(number: String, accountId: String?, clir: HideNumber.Clir): String {
         if (clir == HideNumber.Clir.PLAIN) return number
         val country = catching { PhoneEnv.countryIso(context, accountId) }.getOrNull()
-        return HideNumber.apply(number, country, clir, serviceCode = PhoneIdentity.isServiceCode(number))
+        return HideNumber.forOutgoing(number, country, clir, serviceCode = PhoneIdentity::isServiceCode)
     }
 
     fun callVoicemail(accountId: String? = null): PlaceResult = try {

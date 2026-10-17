@@ -91,6 +91,21 @@ object HideNumber {
         return code(country, hide = clir == Clir.HIDE) + number.trim()
     }
 
+    /**
+     * The number to dial for [clir] when [number] may already carry a CLIR code. A redial — "Call again showing my
+     * number" ([offerShowAgain]) or a retry — reaches the placer with whatever the ended call's handle held, and where
+     * the platform kept the dialled code on the handle (see the call log read path, which [strip]s it) that number
+     * still begins with the old hide/show code. The old code is taken off first ([strip]) so exactly the code for this
+     * decision goes out: a "show" is never defeated by an old hide left in front, and nothing is ever stacked. The
+     * service-code test runs on the stripped number ([serviceCode]), since the old code would make it look like an MMI.
+     * [number] unchanged for [Clir.PLAIN] (a plain retry repeats the original call exactly, code and all).
+     */
+    fun forOutgoing(number: String, country: String?, clir: Clir, serviceCode: (String) -> Boolean, internet: Boolean = false): String {
+        if (clir == Clir.PLAIN) return number
+        val plain = strip(number, country)
+        return apply(plain, country, clir, serviceCode(plain), internet)
+    }
+
     /** Codes that contain `*` or `#`: no dialled number begins with these, so they are stripped wherever they lead. */
     private val SYMBOL = (BY_COUNTRY.values + DEFAULT).flatMap { listOf(it.hide, it.show) }.filter { it.any { ch -> ch == '*' || ch == '#' } }.distinct()
 
