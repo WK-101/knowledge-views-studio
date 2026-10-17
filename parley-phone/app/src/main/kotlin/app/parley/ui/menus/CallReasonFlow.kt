@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,6 +45,7 @@ import app.parley.ui.Bidi
 import app.parley.ui.ConfirmDialog
 import app.parley.ui.ParleySheet
 import app.parley.ui.Spacing
+import app.parley.ui.SwitchRow
 import app.parley.ui.common.Format
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -52,6 +54,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * or **Text first** (the messaging app opens with "Calling you about …"; back in Parley, "Call Ana now?"). The call
  * takes the usual path (dial guard, SIM choice, confirmation). [onDone] closes the flow.
  */
+@Suppress("CyclomaticComplexMethod") // branches on the call stage, the reason's ways, and the per-call hide toggle
 @Composable
 fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
     val context = LocalContext.current
@@ -59,6 +62,10 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
     var stage by rememberSaveable(target) { mutableStateOf(ReasonStage.SHEET) }
     var reason by rememberSaveable(target) { mutableStateOf("") }
     var facts by remember(target) { mutableStateOf<CallReasons.Facts?>(null) }
+    // Hide my number for this call: starts from the policy default (a contact/label/Situation that always hides), which
+    // a null override follows; the toggle sets true (hide) or false (show) for this one call.
+    var defaultHidden by remember(target) { mutableStateOf(false) }
+    var hideOverride by rememberSaveable(target) { mutableStateOf<Boolean?>(null) }
     LaunchedEffect(target) {
         // An emergency number is called at once, checked before anything else is asked of the phone (SIMs, phone
         // accounts, apps): nothing may stand between the user and the call. Facts that take too long: the usual call.
@@ -67,6 +74,8 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
         if (f == null || f.reason.emergency) {
             onDone()
             vm.requestCall(target.number, target.name, simId = target.simId)
+        } else {
+            defaultHidden = catching { vm.wouldHideByPolicy(target.number) }.getOrDefault(false)
         }
     }
     val who = target.name?.takeIf { it.isNotBlank() } ?: Bidi.ltr(Format.number(target.number, vm.countryIso))
@@ -88,9 +97,11 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
         ReasonStage.SHEET -> facts?.takeIf { !it.reason.emergency }?.let { f ->
             ReasonSheet(
                 who, f, reason, onReason = { reason = it }, onDismiss = onDone,
+                hidden = hideOverride ?: defaultHidden,
+                onHiddenChange = { v -> hideOverride = if (v == defaultHidden) null else v },
                 onCall = { subject ->
                     onDone()
-                    vm.requestCall(target.number, target.name, simId = target.simId, subject = subject)
+                    vm.requestCall(target.number, target.name, simId = target.simId, subject = subject, hide = hideOverride)
                 },
                 onTextFirst = { clean ->
                     val text = res.getString(R.string.reason_message, clean)
@@ -111,7 +122,7 @@ fun CallReasonFlow(vm: AppViewModel, target: ReasonTarget, onDone: () -> Unit) {
             // This question is the confirmation: "Confirm before calling" isn't asked again.
             onConfirm = {
                 onDone()
-                vm.requestCall(target.number, target.name, skipConfirm = true, simId = target.simId)
+                vm.requestCall(target.number, target.name, skipConfirm = true, simId = target.simId, hide = hideOverride)
             },
             onDismiss = onDone,
             dismissLabel = stringResource(R.string.label_not_now),
@@ -130,6 +141,7 @@ private suspend fun reasonFacts(vm: AppViewModel, context: android.content.Conte
 @Composable
 private fun ReasonSheet(
     who: String, f: CallReasons.Facts, reason: String, onReason: (String) -> Unit, onDismiss: () -> Unit,
+    hidden: Boolean, onHiddenChange: (Boolean) -> Unit,
     onCall: (String?) -> Unit, onTextFirst: (String) -> Unit,
 ) {
     val ways = CallReason.ways(f.reason)
@@ -144,6 +156,14 @@ private fun ReasonSheet(
                 placeholder = { Text(stringResource(R.string.reason_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+            )
+            // Hide my number for this call: the right code for the SIM is added for this one call only.
+            SwitchRow(
+                stringResource(R.string.hide_number_this_call),
+                stringResource(R.string.hide_number_this_call_summary),
+                hidden,
+                icon = Icons.Rounded.VisibilityOff,
+                onChange = onHiddenChange,
             )
             val explain = when {
                 ReasonWay.SUBJECT in ways -> R.string.reason_subject_body

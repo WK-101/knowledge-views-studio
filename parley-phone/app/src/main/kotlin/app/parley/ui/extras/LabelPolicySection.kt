@@ -17,6 +17,7 @@ import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.Handshake
 import androidx.compose.material.icons.rounded.SimCard
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import app.parley.common.extras.LabelPolicies
 import app.parley.common.extras.LabelPolicy
 import app.parley.ui.ParleyListItem
 import app.parley.ui.Section
+import app.parley.ui.SwitchRow
 import app.parley.ui.contact.AutoAnswerRow
 import app.parley.ui.contact.VibrationPatternDialog
 import app.parley.ui.contact.VibrationRow
@@ -197,6 +199,11 @@ fun LabelPolicySection(vm: AppViewModel, title: String, members: List<ContactSum
                 extras.updatePolicy(title) { it.copy(autoAnswer = v) }
             }
         }
+        // Always hide my number when calling members (one call at a time; never emergency, service or internet calls).
+        SwitchRow(
+            stringResource(R.string.label_policy_hide_number), stringResource(R.string.label_policy_hide_number_summary), p.hideCallerId,
+            icon = Icons.Rounded.VisibilityOff,
+        ) { v -> extras.updatePolicy(title) { it.copy(hideCallerId = v) } }
     }
     if (pickVibration) VibrationPatternDialog(
         current = p.vibration, name = title, seedKey = "label:$title",

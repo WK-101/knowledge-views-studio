@@ -36,6 +36,28 @@ class CallLogIndexTest {
         assertEquals(NumberKeys.HIDDEN, NumberKeys.of("", "DE"))
     }
 
+    @Test fun a_hidden_call_keys_under_the_plain_number() {
+        // A call placed with a CLIR code in front keys the same as the plain number (SX-1 history stripping).
+        assertEquals(NumberKeys.of("0612345678", "FR"), NumberKeys.of("#31#0612345678", "FR"))
+        assertEquals(NumberKeys.of("+15555550123", "US"), NumberKeys.of("*67+15555550123", "US"))
+        assertEquals(NumberKeys.of("02079460958", "GB"), NumberKeys.of("14102079460958", "GB"))
+    }
+
+    @Test fun a_hidden_call_is_grouped_under_the_contact() {
+        // Anna called with the number hidden (France, #31#): her Recents row still names her and redials her number.
+        val idx = CallLogIndex.build(
+            listOf(
+                call("+33612345678", CallType.INCOMING, at(2026, 1, 1), 60),
+                call("#31#0612345678", CallType.OUTGOING, at(2026, 1, 2), 30),
+            ),
+            listOf(anna), "FR", UTC,
+        )
+        assertEquals(1, idx.people.size)
+        val p = idx.people.values.single()
+        assertEquals("Anna", p.name)
+        assertEquals(2, idx.totals(personKey = p.key).total)
+    }
+
     @Test fun trunk_prefix_does_not_split_a_person() {
         val idx = CallLogIndex.build(
             listOf(

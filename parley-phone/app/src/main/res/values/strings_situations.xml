@@ -55,6 +55,8 @@
     <string name="sit_reply_body">Shown first when you decline a call with a message. Leave it empty to keep your usual order.</string>
     <string name="sit_reply_silenced">Offer the reply to people silenced</string>
     <string name="sit_reply_silenced_sub">When someone you know rings silently, a notification offers this reply in one tap, through your messages app</string>
+    <string name="sit_hide_number">Hide my number</string>
+    <string name="sit_hide_number_sub">While this is on, your number is hidden on calls you place (never on emergency, service or internet calls)</string>
     <string name="sit_auto_headset">Answer automatically with a headset</string>
     <string name="sit_auto_chosen">Answer chosen people automatically</string>
     <string name="sit_auto_answer_sub">After a few seconds, with a countdown and Cancel, as set in Calls › Answering</string>

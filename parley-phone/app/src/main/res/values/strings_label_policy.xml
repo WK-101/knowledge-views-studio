@@ -65,4 +65,6 @@
         <item quantity="other">Star %d and open settings</item>
     </plurals>
     <string name="label_policy_auto_answer_summary">Calls from people in this label are answered after a few seconds, with Cancel on the call screen</string>
+    <string name="label_policy_hide_number">Hide my number when I call</string>
+    <string name="label_policy_hide_number_summary">Your number is hidden on calls to people in this label (never on emergency, service or internet calls)</string>
 </resources>

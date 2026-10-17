@@ -36,6 +36,29 @@ class CallerChoicesTest {
         assertEquals(p.keys, LabelPolicies.renamed(back, emptyMap()).keys)
     }
 
+    @Test fun hide_my_number_round_trips_on_a_contact_and_a_label() {
+        // SX-1: the per-contact and per-label "Always hide my number" survive encode/decode (backup round-trip).
+        val choices = mapOf("k1" to CallerChoice(hideCallerId = true))
+        assertEquals(choices, CallerChoices.decode(CallerChoices.encode(choices)))
+        assertFalse("off by default", CallerChoice().hideCallerId)
+        assertFalse(CallerChoice(hideCallerId = true).isEmpty)
+
+        val policies = mapOf("Marketplace" to LabelPolicy(hideCallerId = true), "Work" to LabelPolicy(autoAnswer = true))
+        val back = LabelPolicies.decode(LabelPolicies.encode(policies))
+        assertEquals(policies, back)
+        assertTrue(CallerChoices.labelHidesCallerId(setOf("Marketplace"), back))
+        assertFalse(CallerChoices.labelHidesCallerId(setOf("Work"), back))
+    }
+
+    @Test fun hide_my_number_merges_field_by_field_on_a_rekey() {
+        val moved = CallerChoices.rekey(
+            mapOf("old" to CallerChoice(hideCallerId = true), "new" to CallerChoice(vibration = "long")),
+            "old", "new",
+        )
+        assertTrue(moved.getValue("new").hideCallerId)
+        assertEquals("long", moved.getValue("new").vibration)
+    }
+
     @Test fun restored_choices_never_replace_ones_made_here() {
         val here = mapOf("a" to CallerChoice("long"))
         val restored = mapOf("a" to CallerChoice("double"), "b" to CallerChoice(autoAnswer = true))

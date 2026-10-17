@@ -4076,6 +4076,7 @@ Automated: `StaleArchiveDeleteTest` (core:data), `TemporaryRulesTest.the_upkeep_
 1. With the call-history archive on, receive a missed call and, within a second of it appearing in Recents, delete its row. Wait a few seconds (or pull to refresh): it does not come back. Undo puts it back once, not twice.
 2. A private "from your last call" temporary contact kept permanently stays kept after the next daily upkeep (the race with the upkeep itself is covered by the automated test).
 
+
 ## 56. Hide and prove (7.2)
 
 ### 56.1 Undo for every Recents delete, filtered or not
@@ -4099,4 +4100,36 @@ Automated: `DiagnosticsTest.turningOnRecordsAndTurningOffClears` (core:data).
 1. On the Diagnostics screen tap **Turn on diagnostics**: the report appears (device, settings, and from now on recent errors), **Keep diagnostics** is on, and Save as file / Share work.
 2. Make something fail again: it shows under "Recent errors".
 3. Turn **Keep diagnostics** off: the screen returns to the explanation. Turn it on again — "Recent errors" reads "None recorded"; the kept record was cleared. Blocked and allowed calls behave the same throughout, whether diagnostics are on or off.
+
+### 56.5 The right code per country, and never where it mustn't go (SX-1)
+Automated: `HideNumberTest` (core:common: #31#/*31# default, North America *67/*82, UK 141/1470, Australia 1831/1832, Japan 184/186; service/USSD/internet/already-coded numbers never prefixed; `apply`'s show/hide; stripping for history/redial and `apply`-then-`strip` round-trips), `CallLogIndexTest.a_hidden_call_keys_under_the_plain_number`, `CallLogIndexTest.a_hidden_call_is_grouped_under_the_contact` (core:common).
+1. On a SIM whose country is the UK, type a number on the keypad, press and hold Call, and turn on "Hide my number for this call", then Call. (On a debug build, confirm the placed number by logcat or a test SIM.) The dialled string is `141` + the number. Repeat with a North-American SIM (`*67`), an Australian SIM (`1831`), a Japanese SIM (`184`), and a SIM whose country Parley can't tell or has no entry (`#31#`).
+2. Try to hide a service/USSD code (`*100#`), voicemail, and an internet/SIP call: the "Hide my number for this call" option is absent, and no code is ever added.
+3. Emergency: dial 112 (or your local number) with a contact/label/Situation set to always hide, and from the keypad: it is never prefixed and goes straight out.
+4. History: after the hidden UK call, Recents names the person normally (not "141…"); tapping the row redials the plain number, not a doubly-hidden one.
+
+### 56.6 Per call, from the keypad and the call menu (SX-1)
+Automated: `CallReasonFlow` paths exercised by `HideNumberTest.resolve` (per-call wins); manual for the UI.
+1. Keypad, type a number, press and hold Call: the sheet shows "Hide my number for this call" with a switch. Turn it on and Call: the call goes out hidden. Leave it off: the call goes out as usual.
+2. For a contact or number already covered by a policy (56.7), the same switch starts **on** and reads so you can turn it **off** to show your number for this one call.
+3. TalkBack reads the switch and its state; large font and dark mode lay the sheet out cleanly; the switch state survives a rotation.
+
+### 56.7 Always hide, for a contact, a label or a Situation (SX-1)
+Automated: `HideNumberTest` resolve tests (precedence: a per-call choice wins, any policy source hides, nothing by default), `CallerChoicesTest.hide_my_number_round_trips_on_a_contact_and_a_label`, `CallerChoicesTest.hide_my_number_merges_field_by_field_on_a_rekey` (core:common), `SituationsTest.a_situation_can_hide_the_number` (core:common), `CallerIdCopyTest.hideNumberLivesInTheSealedCopy` (core:data, private contacts).
+1. On a contact's page, Settings for this contact › "Always hide my number when I call": on. Call them (no per-call choice): the call goes out hidden; Recents still names them. Turn it off: calls go out as usual.
+2. On a label's page, "Hide my number when I call": on. A member with no choice of their own is called hidden; a per-call "Show my number for this call" still shows it.
+3. A Situation (make one, "Selling my sofa") › "Hide my number": on. Turn the Situation on: calls you place are hidden; turn it off: calls go out as usual. A number's own and its label's choices, and a per-call choice, still apply.
+4. Nothing is on by default: a fresh install, and a backup restored from 7.1, hide nothing until you switch something on.
+
+### 56.8 Private contacts, and nothing leaks (SX-1)
+Automated: `CallerIdCopyTest.hideNumberLivesInTheSealedCopy` (the hide choice is kept in the sealed caller-ID copy, read while visible; the whole copy travels in the vault backup).
+1. Make a private contact and set "Always hide my number when I call" on its page (while unlocked). Call them: the call goes out hidden and history names them while private contacts show.
+2. Lock the app / unlock with the duress PIN / turn on discreet mode: the private contact is hidden as always, and nothing about the hide choice appears anywhere (lock screen, notifications' public versions, widgets). Placing a call to that number while locked adds no code (the choice can't be read).
+3. A private contact in a label with "Hide my number" is hidden while visible, by the label, with no private detail shown.
+
+### 56.9 Call again showing my number (S3)
+Automated: `HideNumberTest.call_again_showing_is_offered_only_for_a_refused_hidden_call`, `HideNumberTest.call_again_showing_is_not_offered_when_it_would_not_help`.
+1. Place a call with your number hidden to a line that rejects withheld numbers (or simulate a REMOTE/REJECTED end on a test build). The call-ended screen says "Some people don't answer hidden numbers. Call again showing your number?" with that action and a dismiss.
+2. Tap it: the same number is redialled on the same SIM with the show code (`*31#`/`*82`/`1470`/…). Dismiss: the offer stays gone.
+3. A hidden call that connected, that you ended yourself, or that rang and was simply missed, is **not** offered this. A call placed with your number shown is never offered it.
 

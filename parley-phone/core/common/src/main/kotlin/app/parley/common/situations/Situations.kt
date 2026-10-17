@@ -114,6 +114,13 @@ data class Situation(
     val simId: String? = null,
     /** The SIM's name when it was chosen, shown when this phone doesn't have it. */
     val simLabel: String? = null,
+    /**
+     * Hide my number by default on calls placed while it is on ("Selling my sofa", Travelling): the right code for the
+     * SIM's country is put in front of that one call, and put back when the Situation goes off. Read live, after a
+     * number's own and its label's choices ([Situations.hidesCallerId]); emergency, service and internet calls are
+     * never touched. A per-call "Show my number" still wins.
+     */
+    val hideCallerId: Boolean = false,
     /** Switches on by itself in this window (and off after it). */
     val schedule: Schedule? = null,
     /** Switches on by itself while this is connected (and off once it isn't). */
@@ -150,7 +157,7 @@ data class Situation(
 
     /** Whether it changes anything at all. */
     val changesSomething: Boolean
-        get() = listOf(
+        get() = hideCallerId || listOf(
             ring, driveAnnounce, driveAnswerFavourites, driveSilenceUnknown, autoAnswerHeadset, autoAnswerChosen, speaker,
             reply?.takeIf { it.isNotBlank() }, replyToSilenced, assistedDialling, localSimHint, simId,
         ).any { it != null }
@@ -625,6 +632,10 @@ object Situations {
     /** The SIM for calls without one of their own while [state] is on, or null. */
     fun activeSim(state: SituationState, list: List<Situation>): String? =
         state.activeId?.let { id -> list.firstOrNull { it.id == id } }?.simId?.takeIf { it.isNotBlank() }
+
+    /** Whether the Situation on now hides the number by default ([Situation.hideCallerId]). Read live, like the SIM. */
+    fun hidesCallerId(state: SituationState, list: List<Situation>): Boolean =
+        state.activeId?.let { id -> list.firstOrNull { it.id == id } }?.hideCallerId == true
 
     /**
      * A restored backup's Situations merged with this phone's: one that is only in the backup is added; where both

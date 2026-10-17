@@ -1003,7 +1003,7 @@ class CallHistory(
 
     private fun encode(r: CallLogRecord): String = ArchivedCalls.encode(r)
 
-    private fun decode(s: String): CallLogRecord = ArchivedCalls.decode(s)
+    private fun decode(s: String): CallLogRecord = ArchivedCalls.decode(s, countryIso)
 
     /** Starts the upkeep below, once, right after construction (its owner calls it), so it finds every property set. */
     fun start() {

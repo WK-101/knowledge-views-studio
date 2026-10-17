@@ -87,6 +87,9 @@ class SituationsController(
     /** The SIM for calls without one of their own while a Situation with a SIM is on (after a number's and a label's). */
     fun activeSim(): String? = Situations.activeSim(_state.value, _list.value)
 
+    /** Whether the Situation on now hides the number by default ([Situation.hideCallerId]). Memory only. */
+    fun hidesCallerId(): Boolean = Situations.hidesCallerId(_state.value, _list.value)
+
     /** Whether the triggers could change anything: one is on, or one can switch itself on. Memory only. */
     fun watching(): Boolean = _state.value.activeId != null || _list.value.any { it.automatic }
 

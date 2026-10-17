@@ -27,14 +27,18 @@ internal object CallerIdCopy {
     /** "They never call me" ([app.parley.common.extras.CallerChoice.neverCalls]). */
     const val C_NEVER_CALLS = "nc"
 
+    /** "Always hide my number when I call them" ([app.parley.common.extras.CallerChoice.hideCallerId]). */
+    const val C_HIDE_CLIR = "hc"
+
     /**
-     * The choices set from the contact's page only (the editor doesn't show them): the vibration, auto-answer and
-     * "They never call me" of [s], written into [o] (an option that is off isn't stored).
+     * The choices set from the contact's page only (the editor doesn't show them): the vibration, auto-answer,
+     * "They never call me" and "Always hide my number" of [s], written into [o] (an option that is off isn't stored).
      */
     fun putPageChoices(o: JSONObject, s: VaultSummary) {
         if (s.vibration.isNullOrBlank()) o.remove(C_VIBRATION) else o.put(C_VIBRATION, s.vibration)
         if (s.autoAnswer) o.put(C_AUTO_ANSWER, true) else o.remove(C_AUTO_ANSWER)
         if (s.neverCalls) o.put(C_NEVER_CALLS, true) else o.remove(C_NEVER_CALLS)
+        if (s.hideCallerId) o.put(C_HIDE_CLIR, true) else o.remove(C_HIDE_CLIR)
     }
     const val C_PRONOUNS = "pn"
 
@@ -106,8 +110,8 @@ internal object CallerIdCopy {
      * this" line, title, pronouns): all a kept listing ([PrivateSummaryCache]) holds.
      */
     private val SUMMARY_KEYS = listOf(
-        "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_NEVER_CALLS, C_SEEDED, C_NAME_ALT,
-        C_REGION, C_COMPANY, C_ARCHIVED, C_DATES, C_SLIDE, C_UNTIL_CASE,
+        "name", "numbers", "u", "purge", C_STAR, C_LABELS, C_TONE, C_VOICEMAIL, C_VIBRATION, C_AUTO_ANSWER, C_NEVER_CALLS, C_HIDE_CLIR, C_SEEDED,
+        C_NAME_ALT, C_REGION, C_COMPANY, C_ARCHIVED, C_DATES, C_SLIDE, C_UNTIL_CASE,
     )
 
     /** Copy [o] cut down to what [summary] reads. */
@@ -123,6 +127,7 @@ internal object CallerIdCopy {
             ringtone = o.optString(C_TONE).ifEmpty { null }, sendToVoicemail = o.optBoolean(C_VOICEMAIL, false),
             vibration = o.optString(C_VIBRATION).ifEmpty { null }, autoAnswer = o.optBoolean(C_AUTO_ANSWER, false),
             neverCalls = o.optBoolean(C_NEVER_CALLS, false),
+            hideCallerId = o.optBoolean(C_HIDE_CLIR, false),
             choicesKnown = o.has(C_SEEDED),
             nameAlt = alternativeOf(o),
             region = o.optString(C_REGION).ifEmpty { null },

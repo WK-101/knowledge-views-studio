@@ -189,4 +189,6 @@
     <string name="discover_situations_widget_title">Situations on your home screen</string>
     <string name="discover_situations_widget_summary">A widget that turns Night, a meeting or driving on and off</string>
     <string name="discover_your_year_summary">Look back at any year: who you were most in touch with, closer and quieter</string>
+    <string name="discover_hide_number_title">Hide my number</string>
+    <string name="discover_hide_number_summary">Hide your caller ID for one call, or always for a contact, label or Situation</string>
 </resources>

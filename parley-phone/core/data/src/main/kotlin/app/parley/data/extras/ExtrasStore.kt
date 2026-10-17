@@ -112,7 +112,7 @@ class ExtrasStore(private val c: DataContainer) {
         // Waiting here while a contact just made visible can't be read back yet (see ContactKeys.rekeyLater).
         _choices.value[key]?.let { return it }
         val s = catching { c.vault.summary(vaultId) }.getOrNull() ?: return CallerChoice()
-        return CallerChoice(s.vibration, s.autoAnswer, s.neverCalls)
+        return CallerChoice(s.vibration, s.autoAnswer, s.neverCalls, s.hideCallerId)
     }
 
     /** Changes the choices of [key]; a private contact's are sealed in its caller-ID copy, like its ringtone. */
@@ -124,8 +124,8 @@ class ExtrasStore(private val c: DataContainer) {
             return
         }
         c.vault.updateCallerChoices(vaultId) { s ->
-            val n = f(CallerChoice(s.vibration, s.autoAnswer, s.neverCalls))
-            s.copy(vibration = n.vibration, autoAnswer = n.autoAnswer, neverCalls = n.neverCalls)
+            val n = f(CallerChoice(s.vibration, s.autoAnswer, s.neverCalls, s.hideCallerId))
+            s.copy(vibration = n.vibration, autoAnswer = n.autoAnswer, neverCalls = n.neverCalls, hideCallerId = n.hideCallerId)
         }
     }
 
@@ -141,7 +141,7 @@ class ExtrasStore(private val c: DataContainer) {
                 c.vault.updateCallerChoices(vaultId) { s ->
                     s.copy(
                         vibration = s.vibration ?: moving.vibration, autoAnswer = s.autoAnswer || moving.autoAnswer,
-                        neverCalls = s.neverCalls || moving.neverCalls,
+                        neverCalls = s.neverCalls || moving.neverCalls, hideCallerId = s.hideCallerId || moving.hideCallerId,
                     )
                 }
             }.getOrDefault(false)
@@ -303,6 +303,29 @@ class ExtrasStore(private val c: DataContainer) {
             val available = c.sims.accounts().map { it.id }.toSet()
             LabelPolicies.simFor(titles, p, available)
         }.getOrNull()
+    }
+
+    /**
+     * Whether policy hides the number when calling [number] (SX-1): the number's own contact's "Always hide my number"
+     * ([CallerChoice.hideCallerId]), or any label it is in ([LabelPolicy.hideCallerId]). A device contact's choice is
+     * read from memory; a private contact's from its sealed caller-ID copy (while visible, so nothing is read when the
+     * vault is locked). The Situation on now is added by the caller; a per-call choice still wins over all of these.
+     */
+    suspend fun hidesCallerIdFor(number: String): Boolean = withContext(Dispatchers.IO) {
+        if (number.isBlank()) return@withContext false
+        val policies = _policies.value
+        val anyLabelHides = policies.values.any { it.hideCallerId }
+        catching {
+            val device = c.contacts.lookup(number)
+            if (device != null) {
+                (device.lookupKey?.let { _choices.value[it]?.hideCallerId } == true) ||
+                    (anyLabelHides && CallerChoices.labelHidesCallerId(c.contacts.labelTitlesOf(device.contactId), policies))
+            } else {
+                // A private contact, read while visible: its own choice, then its private labels.
+                val own = c.vault.lookup(number)?.let { c.vault.summary(it.first)?.hideCallerId } == true
+                own || (anyLabelHides && CallerChoices.labelHidesCallerId(c.privateLabels.titlesForNumber(number).orEmpty(), policies))
+            }
+        }.getOrDefault(false)
     }
 
     /** The Circle rhythm the labels of [contactId] (a list id: negative for a private contact) suggest, with the label's title. */
@@ -533,6 +556,7 @@ class ExtrasStore(private val c: DataContainer) {
                 choice.vibration?.let { o.put("v", it) }
                 if (choice.autoAnswer) o.put("a", true)
                 if (choice.neverCalls) o.put("n", true)
+                if (choice.hideCallerId) o.put("h", true)
                 out.put(o)
             }
             return mapOf(X_CALLER_PEOPLE to out.toString())
@@ -547,7 +571,7 @@ class ExtrasStore(private val c: DataContainer) {
                 val a = catching { JSONArray(v) }.getOrNull() ?: return@let emptyList()
                 (0 until a.length()).mapNotNull { i ->
                     val o = a.optJSONObject(i) ?: return@mapNotNull null
-                    val choice = CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false), o.optBoolean("n", false))
+                    val choice = CallerChoice(o.optString("v").ifEmpty { null }, o.optBoolean("a", false), o.optBoolean("n", false), o.optBoolean("h", false))
                     CallerChoiceRestore.Entry(o.toPersonRef(), choice)
                 }
             } ?: values[X_CALLER_CHOICES]?.let { v ->

@@ -46,6 +46,19 @@ class SituationsTest {
     private fun sig(day: DayOfWeek, h: Int, m: Int = 0, car: Boolean = false, names: List<String> = emptyList(), bt: Boolean = false) =
         SituationSignals(clock(day, h, m), car, names, bt)
 
+    @Test fun a_situation_can_hide_the_number() {
+        // SX-1: "Hide my number" is read live (like the SIM), counts as changing something, and round-trips.
+        val hiding = Situation("custom-1", name = "Selling my sofa", hideCallerId = true)
+        assertTrue(hiding.changesSomething)
+        val list = defaults + hiding
+        assertTrue(Situations.hidesCallerId(SituationState(activeId = "custom-1"), list))
+        assertFalse(Situations.hidesCallerId(SituationState(activeId = Situations.MEETING), list))
+        assertFalse(Situations.hidesCallerId(SituationState(activeId = null), list))
+        // A restored backup reads the field; an older one (no field) reads false.
+        val back = Situations.decodeList(Situations.encodeList(list))!!.first { it.id == "custom-1" }
+        assertTrue(back.hideCallerId)
+    }
+
     @Test fun turning_on_applies_the_bundle_and_off_puts_back_exactly_what_was_set() {
         val on = Situations.turnOn(SituationState(), mine, s(Situations.MEETING), SituationCause.MANUAL, 100)
         val b = on.behaviour

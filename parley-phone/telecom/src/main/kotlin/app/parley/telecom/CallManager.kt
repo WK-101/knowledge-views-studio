@@ -27,6 +27,7 @@ import app.parley.common.calls.CallDrop
 import app.parley.common.calls.CallQualityFacts
 import app.parley.common.calls.DropFacts
 import app.parley.common.calls.CallFailure
+import app.parley.common.calls.HideNumber
 import app.parley.common.calls.CallHandOff
 import app.parley.common.calls.DriveProfile
 import app.parley.common.calls.EmergencyPolicy
@@ -267,6 +268,10 @@ object CallManager {
         val number = call.details.handle?.schemeSpecificPart
         val hidden = call.details.handlePresentation != TelecomManager.PRESENTATION_ALLOWED
         val incoming = call.stateCompat() == Call.STATE_RINGING
+        // An outgoing call Parley placed with the number hidden: remembered so the call-ended screen can offer to show
+        // it if the other side turned it away. The expectation set at dial time is the reliable signal; the dialled
+        // code (where the platform keeps it on the handle) is a fallback.
+        if (!incoming && (_pendingOutgoing.value?.hidden == true || HideNumber.wasHidden(number.orEmpty()))) s.outgoingHidden = true
         s.startedAt = System.currentTimeMillis()
         if (calls.size == 1) RingBoost.restoreAsync(appContext) // a boost left behind by a crash
         if (incoming) {
@@ -618,10 +623,14 @@ object CallManager {
                 code = endCode(cause), reason = cause?.reason, endedByLimit = s.endedByLimit,
             ),
         )
+        // A hidden outgoing call the other side seems to have turned away: offer "Call again showing your number".
+        val showAgain = HideNumber.offerShowAgain(
+            wasHidden = s.outgoingHidden, connected = base.connectTimeMillis > 0, userEnded = s.userEnded, code = endCode(cause),
+        )
         val ended = when {
-            failure != null -> shown.copy(failure = failure, failureText = texts.failure(failure, call))
+            failure != null -> shown.copy(failure = failure, failureText = texts.failure(failure, call), showNumberAgain = showAgain)
             drop != null -> shown.copy(drop = drop, dropText = texts.drop(drop, s), disconnectReason = str(R.string.call_drop_title))
-            else -> shown
+            else -> shown.copy(showNumberAgain = showAgain)
         }
         holdMode.stopReminders(id)
         val facts = endRecorder.quality(call, ended, s, drop, cause)
@@ -664,8 +673,8 @@ object CallManager {
     }
 
     /** Called when Parley places a call, so the UI can say "Calling via Work SIM…" before the call exists. */
-    fun expectOutgoing(number: String, simLabel: String?) {
-        val p = PendingOutgoing(number, simLabel, SystemClock.elapsedRealtime())
+    fun expectOutgoing(number: String, simLabel: String?, hidden: Boolean = false) {
+        val p = PendingOutgoing(number, simLabel, SystemClock.elapsedRealtime(), hidden)
         _pendingOutgoing.value = p
         scope.launch {
             delay(PENDING_OUTGOING_MS)
@@ -913,6 +922,17 @@ object CallManager {
     /** Retry on the failure banner. The reason it still failed, or null. */
     suspend fun redial(number: String, accountId: String?): String? =
         catching { deps.redial(number, accountId) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
+
+    /** "Call again showing your number" after a refused hidden call: redials with the show code. The reason it failed, or null. */
+    suspend fun callAgainShowing(number: String, accountId: String?): String? {
+        dismissShowNumberAgain(number)
+        return catching { deps.redial(number, accountId, HideNumber.Clir.SHOW) }.getOrElse { it.message ?: str(R.string.call_disconnect_failed) }
+    }
+
+    /** Dismiss (or take) "Call again showing your number": the offer stays gone on the ended call. */
+    fun dismissShowNumberAgain(number: String) {
+        _lastEnded.value?.takeIf { it.showNumberAgain && it.number == number }?.let { _lastEnded.value = it.copy(showNumberAgain = false) }
+    }
 
     /** The caller lookup hadn't finished when the call ended: fill the name in on the call-ended screen. */
     private fun lookUpEndedName(ended: CallUi) {

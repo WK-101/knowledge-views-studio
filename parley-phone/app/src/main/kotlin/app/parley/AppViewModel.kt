@@ -25,6 +25,7 @@ import app.parley.common.StartTab
 import app.parley.common.calls.AssistedDial
 import app.parley.common.calls.CallSource
 import app.parley.common.calls.EmergencyPolicy
+import app.parley.common.calls.HideNumber
 import app.parley.common.calls.NetworkName
 import app.parley.common.calls.PocketGuard
 import app.parley.common.calltime.Ussd
@@ -126,6 +127,8 @@ data class PendingCall(
     val abroadWarnings: List<DialWarning> = emptyList(),
     /** With [chooseSim]: each SIM as the chooser shows it (network, number, roaming, suggested). */
     val simCards: List<app.parley.common.calls.SimCard> = emptyList(),
+    /** Hide or show the caller ID for this one call ([app.parley.common.calls.HideNumber]); resolved before asking. */
+    val clir: app.parley.common.calls.HideNumber.Clir = app.parley.common.calls.HideNumber.Clir.PLAIN,
 )
 
 sealed interface UiEvent {
@@ -431,7 +434,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun requestCall(
         number: String, name: String? = null, skipConfirm: Boolean = false, simId: String? = null, source: CallSource = CallSource.OTHER,
-        subject: String? = null,
+        subject: String? = null, hide: Boolean? = null,
     ) {
         if (number.isBlank()) return
         if (Ussd.isUssd(number)) {
@@ -444,31 +447,55 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
-            val p = gate.check(number, name, sims.value.size, simId, skipConfirm)
+            val clir = resolveClir(number, hide)
+            val p = gate.check(number, name, sims.value.size, simId, skipConfirm, clir)
             // A one-tap call (favourite) while the proximity sensor is covered asks first: probably a pocket.
             val pocket = PocketGuard.GUARDED.contains(source) && c.callExtras.config.value.pocketGuard &&
                 !EmergencyPolicy.bypasses(EmergencyPolicy.Safeguard.POCKET_GUARD, gate.isEmergency(number)) &&
                 PocketGuard.shouldAsk(true, source, ProximityProbe.isCovered(ctx))
             val ask = if (pocket) {
                 val covered = DialWarning(str(R.string.pocket_title), str(R.string.pocket_body))
-                (p ?: PendingCall(number, name, needConfirm = true, chooseSim = false, simId = simId)).let { it.copy(needConfirm = true, warnings = listOf(covered) + it.warnings) }
+                (p ?: PendingCall(number, name, needConfirm = true, chooseSim = false, simId = simId, clir = clir))
+                    .let { it.copy(needConfirm = true, warnings = listOf(covered) + it.warnings) }
             } else {
                 p
             }
             // Nothing to ask: the allowance was checked too.
-            if (ask != null) pendingCall.value = ask.copy(subject = subject) else place(number, simId, confirmed = true, subject = subject)
+            if (ask != null) pendingCall.value = ask.copy(subject = subject) else place(number, simId, confirmed = true, subject = subject, clir = clir)
         }
     }
 
+    /**
+     * Whether and how to hide the caller ID for this call: an explicit per-call [hide] (true/false) wins, otherwise the
+     * number's contact/label and the Situation on now ([HideNumber.resolve]). Off everywhere by default.
+     */
+    private suspend fun resolveClir(number: String, hide: Boolean?): HideNumber.Clir {
+        if (hide != null) return HideNumber.resolve(perCall = hide)
+        val policy = catching { c.extras.hidesCallerIdFor(number) }.getOrDefault(false)
+        val situation = catching { c.situationsIfReady()?.hidesCallerId() }.getOrDefault(false) == true
+        return HideNumber.resolve(perCall = null, contact = policy, situation = situation)
+    }
+
+    /**
+     * Whether an ordinary call to [number] would hide the caller ID by policy (a contact/label "Always hide my number"
+     * or the Situation on now): the per-call toggle starts from this, so it reads "Show my number for this call" where
+     * a policy already hides. Never hides a service code.
+     */
+    suspend fun wouldHideByPolicy(number: String): Boolean =
+        !PhoneIdentity.isServiceCode(number) && resolveClir(number, null) == HideNumber.Clir.HIDE
+
     /** [confirmed]: the user already said yes to a used-up call-time allowance. */
-    fun place(number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false, subject: String? = null) {
+    fun place(
+        number: String, simId: String?, remember: Boolean = false, confirmed: Boolean = false, subject: String? = null,
+        clir: HideNumber.Clir = HideNumber.Clir.PLAIN,
+    ) {
         pendingCall.value = null
         if (Ussd.isUssd(number)) {
             ussd.start(number.trim(), sims.value, simId)
             return
         }
         viewModelScope.launch {
-            when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed, subject)) {
+            when (val r = gate.place(number, simId, contactFor(number)?.displayName, sims.value, remember, confirmed, subject, clir)) {
                 is CallGate.Placed.Ask -> pendingCall.value = r.pending
                 is CallGate.Placed.Done -> (r.result as? PlaceResult.Failed)?.let { toast(DialText.placeFailure(getApplication(), it.reason)) }
             }

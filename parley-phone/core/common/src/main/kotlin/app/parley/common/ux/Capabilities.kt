@@ -239,6 +239,11 @@ object CapabilityCatalog {
             "parley_pin", "pin", "duress", "coercion", "decoy", since = "5.0"),
         screen("private_names", PRIVATE, "Private names in other phone apps", "A phone app you approve can show who's calling", AppScreen.PRIVATE_NAMES,
             "directory", "android auto", "car", "caller id", "google phone"),
+        help(
+            "hide_my_number", PRIVATE, "Hide my number", "Hide your caller ID for one call, or always for a contact, label or Situation",
+            HelpTopic.HIDE_NUMBER, "hide number", "caller id", "clir", "withhold", "anonymous", "141", "#31#", "*67", "block my number",
+            "private number", since = "7.2",
+        ),
 
         // Message without saving
         screen("message_number", MSG, "Message a number without saving it", "Type it on the keypad, then Message or call on…", AppScreen.KEYPAD,

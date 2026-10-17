@@ -34,7 +34,7 @@ internal class RescueCallTest : CallPathTest() {
         override fun onCaseCall(number: String, accountId: String?, facts: CallQualityFacts, keys: List<MenuPress>) { writes += "case" }
         override fun onMenuKeys(number: String, accountId: String?, presses: List<MenuPress>) { writes += "menu" }
         override fun remindToCall(number: String, accountId: String?, at: Long) { writes += "remind" }
-        override suspend fun redial(number: String, accountId: String?): String? {
+        override suspend fun redial(number: String, accountId: String?, clir: app.parley.common.calls.HideNumber.Clir): String? {
             writes += "redial $number"
             return null
         }

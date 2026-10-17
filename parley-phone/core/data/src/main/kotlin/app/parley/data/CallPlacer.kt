@@ -8,6 +8,7 @@ import android.telecom.TelecomManager
 import android.telephony.TelephonyManager
 import app.parley.common.PhoneIdentity
 import app.parley.common.calls.DialCodes
+import app.parley.common.calls.HideNumber
 import app.parley.common.catching
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -39,9 +40,14 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
     /**
      * Places a call to [rawNumber] on [accountId]. Without one, the remembered or label SIM is looked up (off the main
      * thread) unless [simResolved] says the caller already did that and found none. [subject] goes with the call
-     * as `EXTRA_CALL_SUBJECT`; only offered when the SIM's account has `CAPABILITY_CALL_SUBJECT`.
+     * as `EXTRA_CALL_SUBJECT`; only offered when the SIM's account has `CAPABILITY_CALL_SUBJECT`. [clir] hides or shows
+     * the caller ID for this one call ([HideNumber]): the right code for the chosen SIM's country is put in front of
+     * the number as it is dialled, never stored. A service/USSD code is dialled as it is whatever [clir] asks.
      */
-    suspend fun call(rawNumber: String, accountId: String? = null, simResolved: Boolean = false, subject: String? = null): PlaceResult {
+    suspend fun call(
+        rawNumber: String, accountId: String? = null, simResolved: Boolean = false, subject: String? = null,
+        clir: HideNumber.Clir = HideNumber.Clir.PLAIN,
+    ): PlaceResult {
         val number = rawNumber.trim()
         if (number.isEmpty()) return PlaceResult.Failed("Empty number")
         if (handleSecretCode(number)) return PlaceResult.Handled
@@ -49,14 +55,22 @@ class CallPlacer(private val context: Context, private val sims: SimRepository, 
         val chosen = accountId ?: if (simResolved) null else resolveSim(number)
         sims.handle(chosen)?.let { extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, it) }
         subject?.takeIf { it.isNotBlank() }?.let { extras.putString(TelecomManager.EXTRA_CALL_SUBJECT, it) }
+        val dialled = withCallerId(number, chosen, clir)
         return try {
-            telecom.placeCall(Uri.fromParts("tel", number, null), extras)
+            telecom.placeCall(Uri.fromParts("tel", dialled, null), extras)
             PlaceResult.Placed
         } catch (e: SecurityException) {
             PlaceResult.Failed("Phone permission missing")
         } catch (e: Exception) {
             PlaceResult.Failed(e.message ?: "Could not place call")
         }
+    }
+
+    /** [number] with the hide/show code for the chosen SIM's country in front, or [number] as it is ([HideNumber]). */
+    private fun withCallerId(number: String, accountId: String?, clir: HideNumber.Clir): String {
+        if (clir == HideNumber.Clir.PLAIN) return number
+        val country = catching { PhoneEnv.countryIso(context, accountId) }.getOrNull()
+        return HideNumber.apply(number, country, clir, serviceCode = PhoneIdentity.isServiceCode(number))
     }
 
     fun callVoicemail(accountId: String? = null): PlaceResult = try {
