@@ -171,6 +171,33 @@ class HideNumberTest {
         assertFalse(HideNumber.wasHidden("18605551234", "US"))
     }
 
+    // ---- redial: a number that may still carry the previous call's code (forOutgoing) ----
+
+    @Test fun for_outgoing_adds_the_code_to_a_plain_number() {
+        assertEquals("*67+15555550123", HideNumber.forOutgoing("+15555550123", "US", Clir.HIDE, { false }))
+        assertEquals("*82+15555550123", HideNumber.forOutgoing("+15555550123", "US", Clir.SHOW, { false }))
+        assertEquals("+15555550123", HideNumber.forOutgoing("+15555550123", "US", Clir.PLAIN, { false }))
+    }
+
+    @Test fun for_outgoing_replaces_a_code_the_handle_still_carries() {
+        // "Call again showing my number" on a handle the platform left the hide code on: the show code must win, not
+        // be dropped because the number already begins with a code (which plain apply would do).
+        assertEquals("*82+15555550123", HideNumber.forOutgoing("*67+15555550123", "US", Clir.SHOW, { false }))
+        assertEquals("*31#+33612345678", HideNumber.forOutgoing("#31#+33612345678", "FR", Clir.SHOW, { false }))
+        assertEquals("147002079460958", HideNumber.forOutgoing("14102079460958", "GB", Clir.SHOW, { false }))
+        // Re-hiding a handle that already carries the hide code stays a single hide code (never stacked).
+        assertEquals("*67+15555550123", HideNumber.forOutgoing("*67+15555550123", "US", Clir.HIDE, { false }))
+    }
+
+    @Test fun for_outgoing_tests_the_service_code_on_the_stripped_number() {
+        // The service-code test must run on the plain number: with the old code still in front it would look like an
+        // MMI and the show code would be dropped. "*67" + a real number is not a service code once the code is off.
+        var seen = ""
+        val out = HideNumber.forOutgoing("*67+15555550123", "US", Clir.SHOW, { n -> seen = n; n.startsWith("*") })
+        assertEquals("+15555550123", seen)
+        assertEquals("*82+15555550123", out)
+    }
+
     // ---- "call again showing my number" (S3) ----
 
     @Test fun call_again_showing_is_offered_only_for_a_refused_hidden_call() {

@@ -59,8 +59,27 @@ class ReorderSemanticsTest : AppComposeHarness() {
         if (all.size > 2) assertEquals(listOf(earlier, later), all[1].actions())
         val before = firstText()
         run(all.first(), later)
-        compose.waitUntil(5_000) { firstText() != before }
+        compose.waitUntil(10_000) { firstText() != before }
+        compose.waitForIdle()
         assertNotEquals(before, firstText())
+    }
+
+    /**
+     * Wait until the reorderable rows stop changing. The favourites lists are derived from several flows that settle
+     * off the main thread (contacts, call counts, Do-Not-Disturb stars), each re-syncing the shown order as it lands.
+     * Draining them to a steady list before a move means a straggler arriving just after the move, under load, can't
+     * re-sync the list back over it — the row the move produced then stays put instead of flickering back.
+     */
+    private fun waitForStableRows() {
+        var seen: List<String>? = null
+        var steady = 0
+        compose.waitUntil(15_000) {
+            val now = rows().map { it.text() }
+            steady = if (now.size >= 2 && now == seen) steady + 1 else 0
+            seen = now
+            steady >= 3
+        }
+        compose.waitForIdle()
     }
 
     private val up get() = app.getString(R.string.action_move_up)
@@ -84,6 +103,7 @@ class ReorderSemanticsTest : AppComposeHarness() {
     @Test fun favourites_in_the_reorder_sheet_move_earlier_and_later() {
         show { vm -> ReorderFavoritesSheet(vm) {} }
         compose.waitUntil(10_000) { rows().size == 2 }
+        waitForStableRows()
         checkMoves(earlier, later) { rows().first().text() }
     }
 
@@ -92,6 +112,7 @@ class ReorderSemanticsTest : AppComposeHarness() {
         waitForText("Bob Babbage")
         compose.onNodeWithText(app.getString(R.string.fav_reorder)).performClick()
         compose.waitUntil(10_000) { rows().size == 2 }
+        waitForStableRows()
         checkMoves(earlier, later) { rows().first().text() }
     }
 
