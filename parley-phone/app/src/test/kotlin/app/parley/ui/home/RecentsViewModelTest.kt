@@ -374,6 +374,27 @@ class RecentsViewModelTest {
         t.until("the calls to come back") { t.callLog.rows().size == 4 }
     }
 
+    // Deleting a row while a chip narrows the list offers Undo just as the full list does, and Undo brings the row back.
+    @Test fun delete_from_a_filtered_list_offers_undo_and_restores_the_row() {
+        t.call("+44 20 7946 0001", today, Calls.MISSED_TYPE)
+        t.call("+44 20 7946 0001", today - MINUTE, Calls.INCOMING_TYPE, 5)
+        t.call("+44 20 7946 0002", today - 2 * MINUTE, Calls.OUTGOING_TYPE, 5)
+        val vm = recents()
+        // The Missed filter leaves one row (the missed call); its incoming and the outgoing call are hidden.
+        vm.filter.value = RecentFilter.MISSED
+        val g = vm.groupsWhen("the one missed row") { it.size == 1 }.single()
+        assertEquals(CallType.MISSED, g.latest.type)
+        var count = 0
+        var undo: (suspend () -> Unit)? = null
+        vm.delete(g) { n, back -> count = n; undo = back }
+        t.until("the missed call to go") { t.callLog.rows().size == 2 && undo != null }
+        assertEquals(1, count)
+        assertNotNull("Undo must be offered when deleting from a filtered list", undo)
+        // Undo restores the deleted row's call.
+        runBlocking { undo?.invoke() }
+        t.until("the missed call to come back") { t.callLog.rows().size == 3 }
+    }
+
     // ---------------------------------------------------------------- private contacts
 
     @Test fun a_private_contacts_calls_open_the_private_contact() {

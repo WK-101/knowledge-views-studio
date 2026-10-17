@@ -235,6 +235,8 @@ class SettingsRepository internal constructor(
             answerWithRtt = this[K.answerWithRtt] ?: d.answerWithRtt,
             // Absent before the setting existed: off, as for a new phone.
             rememberNetworkNames = this[K.rememberNetworkNames] ?: d.rememberNetworkNames,
+            // Off by default and for every phone before the setting existed: nothing diagnostic is kept until opted in.
+            keepDiagnostics = this[K.keepDiagnostics] ?: d.keepDiagnostics,
             surfaces = SurfaceLayout.decode(this[K.surfaces]),
             rememberRecentsFilter = this[K.rememberRecentsFilter] ?: d.rememberRecentsFilter,
             recentsFilter = this[K.recentsFilter] ?: d.recentsFilter,
@@ -290,6 +292,7 @@ class SettingsRepository internal constructor(
         this[K.showCallerPhoto] = s.showCallerPhoto
         this[K.answerWithRtt] = s.answerWithRtt
         this[K.rememberNetworkNames] = s.rememberNetworkNames
+        this[K.keepDiagnostics] = s.keepDiagnostics
         this[K.surfaces] = s.surfaces.encode()
         this[K.rememberRecentsFilter] = s.rememberRecentsFilter
         this[K.recentsFilter] = s.recentsFilter
@@ -344,6 +347,7 @@ class SettingsRepository internal constructor(
         val lockScreenCaller = stringPreferencesKey("lock_screen_caller")
         val showCallerPhoto = booleanPreferencesKey("show_caller_photo")
         val rememberNetworkNames = booleanPreferencesKey("remember_network_names")
+        val keepDiagnostics = booleanPreferencesKey("keep_diagnostics")
         val answerWithRtt = booleanPreferencesKey("answer_with_rtt")
         val surfaces = stringPreferencesKey("surface_layout")
         val rememberRecentsFilter = booleanPreferencesKey("remember_recents_filter")

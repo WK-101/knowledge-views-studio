@@ -111,6 +111,12 @@ sealed document of its own under the same key, so the ring path can read it whil
 contacts' numbers and lookup keys, stays on this phone (not in backups or transfers) and never holds private contacts'
 numbers. A document that can't be opened is never overwritten and warns about nothing.
 
+Diagnostics (the short record of recent errors behind Settings › About › Export diagnostics) are **off by default**.
+Nothing diagnostic is recorded or stored until the user turns on **Keep diagnostics**; turning it off again stops
+recording and clears whatever was kept. Each kept error holds only where it happened and its kind (never its message),
+stays on this phone with no internet access, and is only ever exported by the user. Only the diagnostic record is
+gated this way — call screening and handling are unaffected whether diagnostics are on or off.
+
 ### Checking your data, without changing it (7.2)
 
 "Check Parley's data" (Tools, and Help & troubleshooting) is a **read-only** self-check (`DataSelfCheck`). It opens

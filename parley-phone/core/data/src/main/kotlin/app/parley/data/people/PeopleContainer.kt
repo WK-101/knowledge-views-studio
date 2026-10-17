@@ -58,7 +58,9 @@ class PeopleContainer(private val c: DataContainer) {
     val provenance by lazy { ProvenanceReader(c.appContext, writeLog) }
     val audit by lazy { ContactsAudit(c.appContext) }
     val privateNames by lazy { PrivateNameAccess(c.appContext) }
-    val diagnostics by lazy { Diagnostics(c.appContext) }
+
+    // Diagnostics are kept only while "Keep diagnostics" is on (off by default): record() is then a no-op.
+    val diagnostics by lazy { Diagnostics(c.appContext) { c.settings.settings.value.keepDiagnostics } }
 
     /**
      * Your own card. The old "My details" is folded into it the first time it's used, so there's one copy: written to

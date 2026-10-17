@@ -1066,6 +1066,10 @@
     <string name="diag_tables">Include the contacts tables (masked)</string>
     <string name="diag_tables_summary">How accounts stored each contact, with every name, number and text replaced by its shape (Aaaa 99 9923)</string>
     <string name="diag_save_file">Save as file</string>
+    <string name="diag_keep">Keep diagnostics</string>
+    <string name="diag_keep_summary">Keep a short record of errors on this phone, so you can export it if something goes wrong</string>
+    <string name="diag_off_body">Diagnostics are off, so Parley keeps nothing to report. Turn them on to start keeping a short record of errors and settings on this phone — no contacts, no call history, and nothing is ever sent anywhere. Turning them off again clears whatever was kept.</string>
+    <string name="diag_turn_on">Turn on diagnostics</string>
     <string name="action_share">Share</string>
 
     <!-- People: duplicate warning in the editor -->
