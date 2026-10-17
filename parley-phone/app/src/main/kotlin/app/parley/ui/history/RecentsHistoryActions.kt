@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.parley.ui.home.RecentsViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,15 @@ private val exportRequested = MutableStateFlow(false)
 fun RecentsExportHost(vm: AppViewModel) {
     val show by exportRequested.collectAsStateWithLifecycle()
     if (!show) return
-    val groups by activityViewModel<RecentsViewModel>().groups.collectAsStateWithLifecycle()
+    val recents = activityViewModel<RecentsViewModel>()
+    val groups by recents.groups.collectAsStateWithLifecycle()
     val calls = remember(groups) { groups.orEmpty().flatMap { it.calls } }
-    ExportSheet(vm, calls, subject = null) { exportRequested.value = false }
+    // What the export covers, worded for the PDF ("Missed · Last 7 days"); nothing when nothing is filtered.
+    val filter by recents.historyFilter.collectAsStateWithLifecycle()
+    val sims by vm.sims.collectAsStateWithLifecycle()
+    val res = LocalResources.current
+    val coverage = remember(filter, sims) {
+        filter.takeIf { !it.isEmpty }?.let { f -> HistoryText.describe(res, f) { id -> sims.firstOrNull { it.id == id }?.label ?: id } }
+    }
+    ExportSheet(vm, calls, subject = null, coverage = coverage) { exportRequested.value = false }
 }

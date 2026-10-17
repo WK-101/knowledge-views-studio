@@ -64,6 +64,8 @@ object ExportFiles {
         subject: String?,
         format: ExportFormat,
         excelBom: Boolean? = null,
+        summary: String? = null,
+        coverage: String? = null,
     ): File = withContext(Dispatchers.IO) {
         cleanup(context)
         val zone = ZoneId.systemDefault()
@@ -77,7 +79,7 @@ object ExportFiles {
             ExportFormat.PDF -> {
                 val doc = PdfDocument()
                 try {
-                    val layout = PdfLayout(context, A4_WIDTH, A4_HEIGHT)
+                    val layout = PdfLayout(context, A4_WIDTH, A4_HEIGHT, summary, coverage)
                     val pages = layout.paginate(rows)
                     pages.forEachIndexed { i, range ->
                         val page = doc.startPage(PdfDocument.PageInfo.Builder(A4_WIDTH, A4_HEIGHT, i + 1).create())
@@ -157,12 +159,23 @@ object ExportFiles {
     private const val A4_WIDTH = 595
     private const val A4_HEIGHT = 842
 
-    /** Table layout in PostScript points, shared by the PDF file and the print adapter. */
-    internal class PdfLayout(private val context: Context, private val width: Int, private val height: Int) {
+    /**
+     * Table layout in PostScript points, shared by the PDF file and the print adapter. [summary] (the totals) and
+     * [coverage] (the applied filter) are extra header lines when given; the header reserves room for them so rows
+     * never overlap them on any page.
+     */
+    internal class PdfLayout(
+        private val context: Context,
+        private val width: Int,
+        private val height: Int,
+        private val summary: String? = null,
+        private val coverage: String? = null,
+    ) {
         private val margin = 36f
         private val rowH = 15f
         private val noteH = 12f
-        private val headerH = 64f
+        private val extraHeaderLines = listOfNotNull(summary, coverage).size
+        private val headerH = 64f + extraHeaderLines * 12f
         private val footerH = 24f
         private val text = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 9f; color = Color.BLACK }
         private val bold = TextPaint(text).apply { typeface = Typeface.DEFAULT_BOLD }
@@ -197,7 +210,11 @@ object ExportFiles {
             canvas.drawText(title, margin, y, titleP)
             y += 16f
             canvas.drawText(context.resources.getQuantityString(R.plurals.hist_pdf_made_with, rows.size, rows.size, fmt.format(Instant.now().atZone(zone))), margin, y, grey)
-            y += 24f
+            y += 12f
+            // The totals and the filter the export covers, so the record says what it is and what it leaves out.
+            summary?.let { canvas.drawText(it, margin, y, grey); y += 12f }
+            coverage?.let { canvas.drawText(context.getString(R.string.hist_pdf_covers, it), margin, y, grey); y += 12f }
+            y += 12f
             val w = width - 2 * margin
             val cols = floatArrayOf(0f, 92f, 170f, w - 110f, w - 55f)
             val heads = listOf(R.string.label_date, R.string.label_type, R.string.hist_pdf_col_who, R.string.label_duration, R.string.label_sim).map { context.getString(it) }

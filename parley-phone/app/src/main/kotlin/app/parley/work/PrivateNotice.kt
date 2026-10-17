@@ -7,6 +7,7 @@ import android.content.Intent
 import androidx.annotation.DrawableRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import app.parley.IntentRoutes
 
 /**
@@ -26,6 +27,7 @@ object PrivateNotice {
         NoticeChannels.ensure(context, channel)
         return NotificationCompat.Builder(context, channel)
             .setSmallIcon(icon)
+            .setColor(ContextCompat.getColor(context, app.parley.ui.R.color.parley_brand))
             .setContentTitle(title)
             .apply { if (text != null) setContentText(text).setStyle(NotificationCompat.BigTextStyle().bigText(text)) }
             .setContentIntent(open)
@@ -48,6 +50,7 @@ object PrivateNotice {
         count: Int = 0,
     ): Notification = NotificationCompat.Builder(context, channel)
         .setSmallIcon(icon)
+        .setColor(ContextCompat.getColor(context, app.parley.ui.R.color.parley_brand))
         .setContentTitle(title)
         .apply { if (category != null) setCategory(category) }
         .apply { if (count > 0) setNumber(count) }

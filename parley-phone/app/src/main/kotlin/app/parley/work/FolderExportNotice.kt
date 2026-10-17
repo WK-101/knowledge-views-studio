@@ -16,7 +16,7 @@ object FolderExportNotice {
     fun post(context: Context) {
         val title = context.getString(R.string.export_folder_replaced_title)
         val b = PrivateNotice.builder(
-            context, NotificationChannels.HOUSEKEEPING, app.parley.ui.R.drawable.ic_stat_block, title, title,
+            context, NotificationChannels.HOUSEKEEPING, app.parley.ui.R.drawable.ic_stat_export, title, title,
             context.getString(R.string.export_folder_replaced_text),
             PrivateNotice.route(context, NotificationRequests.FOLDER_EXPORT, IntentRoutes.ACTION_EXPORT_CONTACTS),
         ).setPriority(NotificationCompat.PRIORITY_LOW)
