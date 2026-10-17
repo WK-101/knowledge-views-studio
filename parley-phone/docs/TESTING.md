@@ -4132,4 +4132,23 @@ Automated: `HideNumberTest.call_again_showing_is_offered_only_for_a_refused_hidd
 1. Place a call with your number hidden to a line that rejects withheld numbers (or simulate a REMOTE/REJECTED end on a test build). The call-ended screen says "Some people don't answer hidden numbers. Call again showing your number?" with that action and a dismiss.
 2. Tap it: the same number is redialled on the same SIM with the show code (`*31#`/`*82`/`1470`/…). Dismiss: the offer stays gone.
 3. A hidden call that connected, that you ended yourself, or that rang and was simply missed, is **not** offered this. A call placed with your number shown is never offered it.
+### 56.10 Check Parley's data: a healthy run
+Automated: `DataSelfCheckTest.a_healthy_phone_reports_everything_readable` (core:data); `CapabilityRoutesTest.the_7_2_help_and_tools_additions_are_wired` (app).
+1. Use Parley for a while so it has data: a few contacts with notes, a case file with a reference number, a private contact, some call history, and set up Encrypted backups (passphrase and a folder).
+2. Tools › Check Parley's data (also under Help & troubleshooting, "Parley's screens look empty, or show an error"). It runs on its own and shows a green banner "Everything checks out. Parley read all its data, and nothing was changed."
+3. Each row (Notes, Private contacts, Private call history, Case files, To call, Phone menus, Call round, Archived contacts, Daily snapshots, Number fingerprints, Backup) shows a tick with a count or "Nothing stored yet". Backup shows "A backup can be made".
+4. Tap Check again: the same result. Nothing in the app changes, and no notification appears.
+
+### 56.11 Check Parley's data: a part that can't be read
+Automated: `DataSelfCheckTest.a_corrupted_sealed_record_is_reported_and_nothing_is_changed` (core:data).
+1. To stage a fault on a test phone, corrupt one sealed file (for example a file under `files/no_backup/docs/case_files/` via `adb`, on a debug build) so it can no longer be decrypted.
+2. Run Check Parley's data. The matching row (e.g. Case files) turns to an error with "N couldn't be read — left unchanged", and the banner reads "N things couldn't be read. Nothing was changed. You can put them back from a backup," with a button to Encrypted backups.
+3. Confirm nothing was repaired or deleted: the corrupted file is still there, byte for byte, and the rest of that store's files are untouched. Parley never offers to "fix" or wipe anything — only to restore from a backup.
+4. Under a duress unlock, the private rows (Private contacts, Private call history) read exactly as they would on a phone with none ("Nothing stored yet"): the check reveals nothing about hidden data.
+
+### 56.12 Help: call recording and flashing on ring
+Automated: `HelpTopicTest.the_7_2_help_pages_are_listed`, `CapabilityRoutesTest.every_help_page_opens_and_leads_to_a_registered_place` (app).
+1. Tools › Help & troubleshooting lists "Why Parley doesn't record calls" and "A flashing light when the phone rings" (both English only, no new permission, no setting added).
+2. Open "Why Parley doesn't record calls": it explains plainly that an app can't capture the other party on Android 10–16, that the workarounds are unsafe or banned, that recording may be illegal without consent, and points to the written record Parley keeps instead (Case files now; a Call receipt and call record coming). It has no button — it only explains.
+3. Open "A flashing light when the phone rings": it says Parley adds none and points to Settings › Accessibility › Flash notifications, which works for every app. Follow that path on the device and confirm Android's own setting is there (whether incoming calls flash varies by phone).
 

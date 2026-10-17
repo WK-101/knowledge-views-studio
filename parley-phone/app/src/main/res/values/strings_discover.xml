@@ -56,6 +56,7 @@
     <string name="discover_coming_from_title">Coming from another phone?</string>
     <string name="discover_coming_from_summary">Bring contacts, call history and block lists from your old phone</string>
     <string name="discover_health_summary">Numbers without a country code or that no longer work, stale contacts</string>
+    <string name="discover_check_data_summary">Make sure Parley can read its sealed data; it never changes or deletes anything</string>
     <string name="action_find_merge_duplicates">Find &amp; merge duplicates</string>
     <string name="discover_duplicates_summary">Contacts saved twice, merged with one undo</string>
     <string name="discover_circle_title">Keep in touch with your Circle</string>

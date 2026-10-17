@@ -25,7 +25,7 @@ enum class Job(val title: String) {
 /** Screens a row can open directly. The app maps each one to its route with an exhaustive `when`. */
 enum class AppScreen {
     BLOCKING, SPAM_LISTS, TEST_A_CALL, RULE_TEMPLATES, BLOCK_LIST_IMPORT,
-    HISTORY_UNDO, SNAPSHOTS, BACKUP, SYNC, HEALTH_CHECK, DUPLICATES, COMING_FROM,
+    HISTORY_UNDO, SNAPSHOTS, BACKUP, SYNC, HEALTH_CHECK, CHECK_DATA, DUPLICATES, COMING_FROM,
     CIRCLE, BIRTHDAYS, TO_CALL, CALL_INSIGHTS, TRIP,
     LABELS, SCAN_QR, MY_CARD, HELPERS,
     PRIVACY_DASHBOARD, WHO_CAN_SEE, TEMPORARY,
@@ -155,6 +155,12 @@ object CapabilityCatalog {
             "paste", "signature", "business card", "copy", "clipboard", since = "4.6"),
         screen("health", LOSE, "Contact health check", "Numbers without a country code or that no longer work, stale contacts", AppScreen.HEALTH_CHECK,
             "tidy", "clean up", "fix", "dead number", "radar", "disconnected").top(),
+        // A read-only self-check: it only reports, and never changes, migrates or deletes anything.
+        screen(
+            "check_data", LOSE, "Check Parley's data",
+            "Make sure Parley can read its sealed data; it never changes or deletes anything",
+            AppScreen.CHECK_DATA, "self-check", "integrity", "verify", "readable", "corrupt", "repair", "sealed", "keys", since = "7.2",
+        ),
         // Recall: the question "who called in March?" starts in Recents, so the row opens Recents' search.
         screen("search_everything", LOSE, "Search everything", "Calls, notes, promises and old contacts, from words like plumber march",
             AppScreen.SEARCH_EVERYTHING, "recall", "find", "who called", "notes", "promise", "deleted", since = "6.0").top().listedIn(LISTED_6_4),

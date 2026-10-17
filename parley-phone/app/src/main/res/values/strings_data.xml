@@ -802,6 +802,41 @@
     <string name="health_auto_delete">Auto-delete these in 30 days</string>
     <string name="health_delete_all">Delete all %1$d</string>
 
+    <!-- Check Parley's data: a read-only self-check of the sealed stores that never changes or deletes anything. -->
+    <string name="label_check_data">Check Parley\'s data</string>
+    <string name="cd_intro">This makes sure Parley can read everything it keeps, sealed on this phone. It only looks — it never changes, moves or deletes anything. If something can\'t be read, Parley says so and leaves it exactly as it is.</string>
+    <string name="cd_all_clear">Everything checks out. Parley read all its data, and nothing was changed.</string>
+    <plurals name="cd_some_unreadable">
+        <item quantity="one">%1$d thing couldn\'t be read. Nothing was changed. You can put it back from a backup.</item>
+        <item quantity="other">%1$d things couldn\'t be read. Nothing was changed. You can put them back from a backup.</item>
+    </plurals>
+    <string name="cd_check_again">Check again</string>
+    <string name="cd_area_records">Notes</string>
+    <string name="cd_area_private_contacts">Private contacts</string>
+    <string name="cd_area_private_calls">Private call history</string>
+    <string name="cd_area_archive">Archived contacts</string>
+    <string name="cd_area_snapshots">Daily snapshots</string>
+    <string name="cd_area_line_keys">Number fingerprints</string>
+    <string name="cd_area_backup">Backup</string>
+    <string name="cd_area_case_files">Case files</string>
+    <string name="cd_area_to_call">To call</string>
+    <string name="cd_area_menus">Phone menus</string>
+    <string name="cd_area_call_round">Call round</string>
+    <string name="cd_area_sealed_other">Sealed records</string>
+    <plurals name="cd_status_ok">
+        <item quantity="one">%1$d checked, all readable</item>
+        <item quantity="other">%1$d checked, all readable</item>
+    </plurals>
+    <string name="cd_status_working">Working</string>
+    <string name="cd_status_backup_ready">A backup can be made</string>
+    <string name="cd_status_empty">Nothing stored yet</string>
+    <string name="cd_status_keys_none">No fingerprints made yet</string>
+    <plurals name="cd_status_unreadable">
+        <item quantity="one">%1$d couldn\'t be read — left unchanged</item>
+        <item quantity="other">%1$d couldn\'t be read — left unchanged</item>
+    </plurals>
+    <string name="cd_status_needs_backup">Not set up — set one up so you can restore</string>
+
     <!-- Birthdays & dates -->
     <string name="label_birthdays_dates">Birthdays &amp; dates</string>
     <string name="bday_empty_title">No dates yet</string>

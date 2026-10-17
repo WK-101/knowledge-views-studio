@@ -42,6 +42,16 @@ class LineKeys private constructor(context: Context) {
     /** [keys] and their keyed forms: what a lookup matches, whether a row is keyed yet or not. */
     fun forms(keys: Collection<String>): List<String> = (keys + keys.mapNotNull(::keyed)).distinct()
 
+    /**
+     * Read-only probe for the data self-check: whether a number fingerprint can be produced right now. null when no
+     * key has been made yet (nothing keyed, so nothing to check). Unlike [keyed], it never creates, renews or marks
+     * a key pending, so a diagnostics run changes nothing.
+     */
+    fun fingerprintsResolve(): Boolean? {
+        if (!File(appContext.noBackupFilesDir, KEY_FILE).exists()) return null
+        return catching { crypto.mac(PROBE) }.isSuccess
+    }
+
     /** The key is gone for good: a new one from now on, and every keyed row is keyed again from its sealed copy. */
     @Synchronized
     private fun renewed(key: String): String? {
@@ -59,6 +69,9 @@ class LineKeys private constructor(context: Context) {
         /** The wrapped key's file (no-backup storage, registered in PersistentStores). */
         const val KEY_FILE = "lines.keys"
         private const val ALIAS = "parley_lines_wrap"
+
+        /** A throwaway number the read-only self-check fingerprints to see the key still works (never stored). */
+        private const val PROBE = "+15555550100"
 
         fun isKeyed(stored: String?): Boolean = stored != null && stored.startsWith(PREFIX)
 

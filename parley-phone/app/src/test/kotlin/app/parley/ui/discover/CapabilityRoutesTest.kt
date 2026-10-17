@@ -87,6 +87,18 @@ class CapabilityRoutesTest {
         ComingFrom.Importer.entries.forEach { opens(importerRoute(it)) }
     }
 
+    @Test fun the_7_2_help_and_tools_additions_are_wired() {
+        // The two Android-feature Help pages and the self-check page are listed in Help and open with their text.
+        listOf(HelpTopic.WHY_NO_RECORDING, HelpTopic.FLASH_ON_RING, HelpTopic.CHECK_DATA).forEach { t ->
+            assertTrue("$t is listed in Help", t in HelpTopic.troubleshooting)
+            opens(DiscoverRoutes.HelpPage(t.key))
+            assertTrue("$t has its body", context.getString(HelpText.of(t).body).isNotBlank())
+        }
+        // The self-check has a Tools row that opens its own screen.
+        val row = CapabilityCatalog.rows.single { it.key == "check_data" }
+        opens((capabilityEvent(row.target) as NavEvent.Route).route)
+    }
+
     @Test fun every_row_has_its_texts() {
         CapabilityCatalog.rows.forEach { c ->
             assertTrue("${c.key} has strings", CapabilityText.has(c.key))
